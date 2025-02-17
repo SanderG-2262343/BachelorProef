@@ -2,6 +2,8 @@
 import requests
 import time
 import os
+import xml.etree.ElementTree as ET
+
 
 def clean_cerif_xml_data(xmlstring):
     xmlstring = xmlstring.replace(' xmlns="http://fris.ewi.be/response"', '')
@@ -14,22 +16,52 @@ def clean_cerif_xml_data(xmlstring):
 def fetch_from_service(url, headers, body, max_pages, destination):
     with requests.Session() as session:
         page = 0
+        retries = 0 
+        skippedpage = []
         while page < max_pages:
             body_for_this_page = body % page
-            response = session.post(url, data=body_for_this_page, headers=headers)
-            # if error
-            #print(session.cookies)
 
             script_dir = os.path.dirname(os.path.abspath(__file__))
             destination_path = os.path.join(script_dir, destination % page)
+
+            
+            response = session.post(url, data=body_for_this_page, headers=headers)
+
+
+
+            try:
+                root = ET.fromstring(response.text)
+
+                # Check if SOAP Fault retry
+                fault_element = root.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Fault')
+                if fault_element is not None:
+                    print(f"SOAP Fault detected on page {page}, retrying in 10 second...")
+                    retries += 1
+                    time.sleep(10)
+                    continue
+
+                # Check if CERIF has children
+                cerif_element = root.find('.//{urn:xmlns:org:eurocris:cerif-1.5-1-FRIS}CERIF')
+                if cerif_element is not None and len(cerif_element) == 0:
+                    print(f"Empty page detected at page {page}. Stopping fetch.")
+                    break
+
+            except ET.ParseError:
+                print(f"Error parsing XML on page {page}. Skipping page.")
+                retries += 1
+                time.sleep(10)
+                continue
+
             os.makedirs(os.path.dirname(destination_path), exist_ok=True)
 
             with open(destination_path, 'wt') as f:
                 f.write('''<?xml version="1.0" encoding="ISO-8859-1"?>''' + clean_cerif_xml_data(response.text))
                 f.close()
-            #print("\r ...Page %s" % page)
+            print("\r ...Page %s" % page)
             page += 1
-            # time.sleep(10)
+            time.sleep(5)
+            retries = 0
+    print(skippedpage)
 
 
 def fetch_organisations():
@@ -190,7 +222,7 @@ def fetch_projects():
                 <fris:getProjects>
                 <crit:projectCriteria>
                     <crit:window>
-                        <crit:pageSize>1</crit:pageSize>
+                        <crit:pageSize>500</crit:pageSize>
                         <crit:pageNumber>%s</crit:pageNumber>
                     </crit:window>
                     <crit:lastModifiedDate>
@@ -201,7 +233,7 @@ def fetch_projects():
         </soapenv:Body>
         </soapenv:Envelope>
     """
-    fetch_from_service(url, headers, body_fris, max_pages=2, destination='data_projects_2024_5/page%s.xml')
+    fetch_from_service(url, headers, body_fris, max_pages=200, destination='data_projects_2024_5/page%s.xml')
     """
     <crit:start inclusive="false">2019-01-01T00:00:00Z</crit:start>
 
@@ -297,15 +329,64 @@ def fetch_publications():
                 <ns1:getResearchOutput xmlns:ns1="http://fris.ewi.be/">
                     <researchOutputCriteria xmlns="http://fris.ewi.be/criteria">
                         <window>
-                            <pageSize>100</pageSize>
+                            <pageSize>1000</pageSize>
                             <pageNumber>%s</pageNumber>
+                            <orderings>
+                                    <order>
+                                        <id>entity.created</id>
+                                        <direction>ASCENDING</direction>
+                                    </order>
+                            </orderings>
                         </window>
-                        <dataProviders>
+                        <dataProviders negated="false">
+                            <identifier>KULeuven</identifier>
+                            <identifier>Bodemkundige_Dienst_van_Belgie</identifier>
+                            <identifier>Thomas_More_Kempen</identifier>
+                            <identifier>LSEC</identifier>
+                            <identifier>Biogas-E</identifier>
+                            <identifier>Thomas_More_Mechelen</identifier>
+                            <identifier>WTCB</identifier>
+                            <identifier>Plantentuin</identifier>
+                            <identifier>Arteveldehogeschool</identifier>
+                            <identifier>Centexbel</identifier>
+                            <identifier>DSPvalley</identifier>
+                            <identifier>Hogeschool_Gent</identifier>
+                            <identifier>ILVO</identifier>
+                            <identifier>ITG</identifier>
+                            <identifier>Proefcentrum_Sierteelt</identifier>
+                            <identifier>VIL</identifier>
+                            <identifier>FlandersFood</identifier>
                             <identifier>UAntwerpen</identifier>
+                            <identifier>Pack4Food</identifier>
+                            <identifier>PSGroenteteelt</identifier>
+                            <identifier>Departement_Omgeving</identifier>
+                            <identifier>KMDA</identifier>
+                            <identifier>FlandersBikeValley</identifier>
+                            <identifier>VLIZ</identifier>
+                            <identifier>SIM</identifier>
+                            <identifier>Provincie_Vlaams_Brabant</identifier>
+                            <identifier>Departement_MOW</identifier>
+                            <identifier>PCAardappelteelt</identifier>
+                            <identifier>Katholieke_hogeschool_VIVES_Zuid</identifier>
+                            <identifier>VUBrussel</identifier>
+                            <identifier>PCHoogstraten</identifier>
+                            <identifier>Odisee</identifier>
+                            <identifier>BILastechniek</identifier>
+                            <identifier>Inagro</identifier>
+                            <identifier>KMSKA</identifier>
+                            <identifier>SIRRIS</identifier>
+                            <identifier>PCFruit</identifier>
+                            <identifier>AlamireFoundation</identifier>
+                            <identifier>UGent</identifier>
+                            <identifier>UCLL</identifier>
+                            <identifier>Hogeschool_PXL</identifier>
+                            <identifier>UHasselt</identifier>
+                            <identifier>HogereZeevaartSchool</identifier>
+                            <identifier>PCGroenteteelt</identifier>
+                            <identifier>Karel_de_Grote_Hogeschool</identifier>
+                            <identifier>INBO</identifier>
+                            <identifier>Hogeschool_West-Vlaanderen</identifier>
                         </dataProviders>
-                        <publicationDate>
-                            <start>2019-01-01T00:00:00</start>
-                        </publicationDate>
                         <type>
                             <identifier>Journal Article</identifier>
                         </type>
@@ -314,7 +395,7 @@ def fetch_publications():
             </soap:Body>
         </soap:Envelope>
         """
-    fetch_from_service(url, headers, body, max_pages=300, destination="data_publications_UAntwerpen\\page%s.xml")
+    fetch_from_service(url, headers, body, max_pages=1500, destination="data_publications_2024_5\\page%s.xml")
 
 """
 
@@ -342,9 +423,9 @@ def fetch_funding_code():
 
 # fetch_organisations()
 # fetch_persons()
-fetch_projects()
+# fetch_projects()
 # fetch_journals()
-# fetch_publications()
+fetch_publications()
 # fetch_funding_code()
 
 

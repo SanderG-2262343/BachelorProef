@@ -169,3 +169,10 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+
+data_projects_2024_5/
+data_publications_2024_5/
+
+data_projects_2024_5.csv
+data_publications_2024_5.csv
