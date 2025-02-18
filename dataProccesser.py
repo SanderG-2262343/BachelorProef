@@ -25,6 +25,9 @@ def extractProjectsToCSV():
         rows = []
         for project in projects:
             try:
+                if len(extractTextFromHtml(project.find('cfAbstr[@cfLangCode="en"]').text)) < 10:
+                    print(f"Empty abstract for project: {project.find('cfProjId').text}")
+                    continue
                 rows.append({
                 'cfProjId': project.find('cfProjId').text,
                 'cfTitle': extractTextFromHtml(project.find('cfTitle[@cfLangCode="en"]').text),
@@ -67,22 +70,23 @@ def extractPublicationsToCSV():
                 'cfAbstr': extractTextFromHtml(publication.find('cfAbstr[@cfLangCode="en"]').text),
                 })
             except AttributeError as e:
-                if publication.find('cfResPublId') is None:
-                    print(f"Publication has no ID")
-                elif publication.find('cfTitle[@cfLangCode="en"]') is None:
-                    print(f"Publication has no english title")
-                elif publication.find('cfAbstr[@cfLangCode="en"]') is None:
-                    print(f"Publication has no english abstract")
-                else:
-                    print(f"Unknown error: {e}")
+                #
+                #if publication.find('cfResPublId') is None:
+                #    print(f"Publication has no ID")
+                #elif publication.find('cfTitle[@cfLangCode="en"]') is None:
+                #    print(f"Publication has no english title")
+                #elif publication.find('cfAbstr[@cfLangCode="en"]') is None:
+                #    print(f"Publication has no english abstract")
+                #else:
+                #    print(f"Unknown error: {e}")
+                pass
 
         temp_df = pd.DataFrame(rows)
         df = pd.concat([df, temp_df], ignore_index=True)
 
-        break # for testing purposes, only process the first file
 
     df.to_csv('data_publications_2024_5.csv', index=False)
 
 
-#extractProjectsToCSV()
-extractPublicationsToCSV()
+extractProjectsToCSV()
+#extractPublicationsToCSV()
