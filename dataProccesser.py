@@ -26,7 +26,7 @@ def extractProjectsToCSV():
         for project in projects:
             try:
                 if len(extractTextFromHtml(project.find('cfAbstr[@cfLangCode="en"]').text)) < 10:
-                    print(f"Empty abstract for project: {project.find('cfProjId').text}")
+                    #print(f"Empty abstract for project: {project.find('cfProjId').text}")
                     continue
                 rows.append({
                 'cfProjId': project.find('cfProjId').text,
