@@ -39,10 +39,15 @@ def fetch_from_service(url, headers, body, max_pages, destination):
                     retries += 1
                     time.sleep(10)
                     continue
-
+                namespaces = {
+                    'soap': "http://schemas.xmlsoap.org/soap/envelope/",
+                    'ns1': "http://fris.ewi.be/",
+                    'ns2': "http://fris.ewi.be/response",
+                }
                 # Check if CERIF has children
+
                 cerif_element = root.find('.//{urn:xmlns:org:eurocris:cerif-1.5-1-FRIS}CERIF')
-                if cerif_element is not None and len(cerif_element) == 0:
+                if cerif_element is not None and len(cerif_element) == 0 or root.find('.//ns2:totalResults',namespaces).text == '0':
                     print(f"Empty page detected at page {page}. Stopping fetch.")
                     break
 
@@ -59,7 +64,7 @@ def fetch_from_service(url, headers, body, max_pages, destination):
                 f.close()
             print("\r ...Page %s" % page)
             page += 1
-            time.sleep(5)
+            #time.sleep(5)
             retries = 0
     print(skippedpage)
 
@@ -323,79 +328,32 @@ def fetch_publications():
     print("\nFETCH PUBLICATIONS...")
     url = "https://frisr4.researchportal.be/ws/ResearchOutputService"
     headers = {"content-type": "application/xml"}
-    body = """
-        <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-            <soap:Body>
-                <ns1:getResearchOutput xmlns:ns1="http://fris.ewi.be/">
-                    <researchOutputCriteria xmlns="http://fris.ewi.be/criteria">
-                        <window>
-                            <pageSize>1000</pageSize>
-                            <pageNumber>%s</pageNumber>
-                            <orderings>
-                                    <order>
-                                        <id>entity.created</id>
-                                        <direction>ASCENDING</direction>
-                                    </order>
-                            </orderings>
-                        </window>
-                        <dataProviders negated="false">
-                            <identifier>KULeuven</identifier>
-                            <identifier>Bodemkundige_Dienst_van_Belgie</identifier>
-                            <identifier>Thomas_More_Kempen</identifier>
-                            <identifier>LSEC</identifier>
-                            <identifier>Biogas-E</identifier>
-                            <identifier>Thomas_More_Mechelen</identifier>
-                            <identifier>WTCB</identifier>
-                            <identifier>Plantentuin</identifier>
-                            <identifier>Arteveldehogeschool</identifier>
-                            <identifier>Centexbel</identifier>
-                            <identifier>DSPvalley</identifier>
-                            <identifier>Hogeschool_Gent</identifier>
-                            <identifier>ILVO</identifier>
-                            <identifier>ITG</identifier>
-                            <identifier>Proefcentrum_Sierteelt</identifier>
-                            <identifier>VIL</identifier>
-                            <identifier>FlandersFood</identifier>
-                            <identifier>UAntwerpen</identifier>
-                            <identifier>Pack4Food</identifier>
-                            <identifier>PSGroenteteelt</identifier>
-                            <identifier>Departement_Omgeving</identifier>
-                            <identifier>KMDA</identifier>
-                            <identifier>FlandersBikeValley</identifier>
-                            <identifier>VLIZ</identifier>
-                            <identifier>SIM</identifier>
-                            <identifier>Provincie_Vlaams_Brabant</identifier>
-                            <identifier>Departement_MOW</identifier>
-                            <identifier>PCAardappelteelt</identifier>
-                            <identifier>Katholieke_hogeschool_VIVES_Zuid</identifier>
-                            <identifier>VUBrussel</identifier>
-                            <identifier>PCHoogstraten</identifier>
-                            <identifier>Odisee</identifier>
-                            <identifier>BILastechniek</identifier>
-                            <identifier>Inagro</identifier>
-                            <identifier>KMSKA</identifier>
-                            <identifier>SIRRIS</identifier>
-                            <identifier>PCFruit</identifier>
-                            <identifier>AlamireFoundation</identifier>
-                            <identifier>UGent</identifier>
-                            <identifier>UCLL</identifier>
-                            <identifier>Hogeschool_PXL</identifier>
-                            <identifier>UHasselt</identifier>
-                            <identifier>HogereZeevaartSchool</identifier>
-                            <identifier>PCGroenteteelt</identifier>
-                            <identifier>Karel_de_Grote_Hogeschool</identifier>
-                            <identifier>INBO</identifier>
-                            <identifier>Hogeschool_West-Vlaanderen</identifier>
-                        </dataProviders>
-                        <type>
-                            <identifier>Journal Article</identifier>
-                        </type>
-                    </researchOutputCriteria>
-                </ns1:getResearchOutput>
-            </soap:Body>
-        </soap:Envelope>
-        """
-    fetch_from_service(url, headers, body, max_pages=1500, destination="data_publications_2024_5\\page%s.xml")
+    dataproviders = [#"KULeuven"    stops at 207, None: "Bodemkundige_Dienst_van_Belgie","Thomas_More_Kempen", Done "LSEC","Biogas-E","Thomas_More_Mechelen","WTCB","Plantentuin","Arteveldehogeschool","Centexbel","DSPvalley","Hogeschool_Gent","ILVO","ITG","Proefcentrum_Sierteelt","VIL","FlandersFood",
+        "UAntwerpen","Pack4Food","PSGroenteteelt","Departement_Omgeving","KMDA","FlandersBikeValley","VLIZ","SIM","Provincie_Vlaams_Brabant","Departement_MOW","PCAardappelteelt","Katholieke_hogeschool_VIVES_Zuid","VUBrussel","PCHoogstraten","Odisee","BILastechniek","Inagro","KMSKA","SIRRIS","PCFruit","AlamireFoundation","UGent","UCLL","Hogeschool_PXL","UHasselt","HogereZeevaartSchool","PCGroenteteelt","Karel_de_Grote_Hogeschool","INBO","Hogeschool_West-Vlaanderen"
+    ]
+    for dataprovider in dataproviders:
+        print("\nFETCH PUBLICATIONS FOR " + dataprovider)
+        body = """
+            <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+                <soap:Body>
+                    <ns1:getResearchOutput xmlns:ns1="http://fris.ewi.be/">
+                        <researchOutputCriteria xmlns="http://fris.ewi.be/criteria">
+                            <window>
+                                <pageSize>1000</pageSize>
+                                <pageNumber>%s</pageNumber>
+                            </window>
+                            <dataProviders negated="false">
+                                <identifier>""" + dataprovider + """</identifier>
+                            </dataProviders>
+                            <type>
+                                <identifier>Journal Article</identifier>
+                            </type>
+                        </researchOutputCriteria>
+                    </ns1:getResearchOutput>
+                </soap:Body>
+            </soap:Envelope>
+            """
+        fetch_from_service(url, headers, body, max_pages=1500, destination="data_publications_2024_5\\" + dataprovider + "page%s.xml")
 
 """
 
