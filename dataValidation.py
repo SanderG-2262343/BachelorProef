@@ -10,20 +10,19 @@ vector_store = Chroma(embedding_function=embeddings,persist_directory = "data_pr
 
 df.dropna(how='any', inplace=True)
 
-print(df.columns)
+
 successfulmatch = 0
 texts = df['cfAbstr'].tolist()
 titles = df['cfTitle'].tolist()
 projIds = df['cfProjId'].tolist()
-for i in range(0, 1):
+for i in range(0, len(texts)):
     if i % 100 == 0:
         print(f"Processing publication {i}")
-    results = vector_store.similarity_search(titles[i] + texts[i], 5)
-    print(results)
+    #results = vector_store.similarity_search(titles[i] + texts[i], 5)
+    results = vector_store.search(titles[i] + texts[i],'mmr',k = 5)
     for result in results:
-        print(result.id, projIds[i])
         if result.id in projIds[i]:
             successfulmatch += 1
             break
 
-print(f"Success Rate of: {successfulmatch % len(df)}")
+print(f"Success Rate of: {successfulmatch * 100 / len(texts)}%")
