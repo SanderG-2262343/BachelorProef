@@ -7,6 +7,12 @@ import os
 # Load the data assuming the data is already preprocessed
 project_data = pd.read_csv('data_projects_2024_5.csv')
 
+
+# Drop rows with empty abstracts
+project_data = project_data[project_data['cfAbstr'].str.len() >= 20] 
+project_data.dropna(how='any', inplace=True) #one project with no abstract
+
+
 # Initialize the OllamaEmbeddings object assume the model already pulled
 embeddings = OllamaEmbeddings(model="nomic-embed-text")
 
@@ -15,28 +21,30 @@ embeddings = OllamaEmbeddings(model="nomic-embed-text")
 async def process_batches():
     batch_size = 100
     texts = project_data['cfAbstr'].tolist()
+    titles = project_data['cfTitle'].tolist()
+    combined = [title + " " + text for title, text in zip(titles, texts)]
     doc_ids = project_data['cfProjId'].tolist()
 
-    for i in range(0, len(texts), batch_size * 5):  # Process in groups of 5 batches
+    for i in range(0, len(combined), batch_size * 5):  # Process in groups of 5 batches
         print(f"Processing batch {i // batch_size} to {i // batch_size + 5}")
         sub_tasks = [
             asyncio.create_task(vector_store.aadd_texts(
-                texts=texts[j:j+batch_size], ids=doc_ids[j:j+batch_size]
+                texts=combined[j:j+batch_size], ids=doc_ids[j:j+batch_size]
             ))
-            for j in range(i, min(i + batch_size * 5, len(texts)), batch_size)
+            for j in range(i, min(i + batch_size * 5, len(combined)), batch_size)
         ]
         await asyncio.gather(*sub_tasks)
 
 
-if not os.path.exists("data_projects_2024_5_vector_store"):
+if not os.path.exists("data_projects_2024_5_vector_store_TitleAbstract"):
 
-    vector_store = Chroma(embedding_function=embeddings,persist_directory = "data_projects_2024_5_vector_store")
+    vector_store = Chroma(embedding_function=embeddings,persist_directory = "data_projects_2024_5_vector_store_TitleAbstract")
 
     asyncio.run(process_batches())
     print("All tasks completed")
 
 else:
-    vector_store = Chroma(embedding_function=embeddings,persist_directory = "data_projects_2024_5_vector_store")
+    vector_store = Chroma(embedding_function=embeddings,persist_directory = "data_projects_2024_5_vector_store_TitleAbstract")
 
 
 
