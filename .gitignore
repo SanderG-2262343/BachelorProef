@@ -171,9 +171,9 @@ cython_debug/
 .pypirc
 
 
-data_projects_2024_5/
-data_publications_2024_5/
+#ignore data files including vector stores,xml files, and csv files
+data_projects_2024_5*
+data_publications_2024_5*
 
-data_projects_2024_5.csv
-data_publications_2024_5.csv
-data_projects_2024_5_vector_store/
+#ignore trained top2vec model
+top2vec_model
