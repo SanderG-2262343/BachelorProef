@@ -85,8 +85,8 @@ def extractPublicationsToCSV():
         df = pd.concat([df, temp_df], ignore_index=True)
 
 
-    df.to_csv('data_publications_2024_5.csv', index=False)
+    df.to_csv('data_publications_2024_5_2.csv', index=False)
 
 
-extractProjectsToCSV()
-#extractPublicationsToCSV()
+#extractProjectsToCSV()
+extractPublicationsToCSV()

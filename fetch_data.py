@@ -3,6 +3,7 @@ import requests
 import time
 import os
 import xml.etree.ElementTree as ET
+import pandas as pd
 
 
 def clean_cerif_xml_data(xmlstring):
@@ -36,6 +37,7 @@ def fetch_from_service(url, headers, body, max_pages, destination):
                 fault_element = root.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Fault')
                 if fault_element is not None:
                     print(f"SOAP Fault detected on page {page}, retrying in 10 second...")
+                    ET.dump(root)
                     retries += 1
                     time.sleep(10)
                     continue
@@ -52,7 +54,7 @@ def fetch_from_service(url, headers, body, max_pages, destination):
                     break
 
             except ET.ParseError:
-                print(f"Error parsing XML on page {page}. Skipping page.")
+                print(f"Error parsing XML on page {page}. Retrying page.")
                 retries += 1
                 time.sleep(10)
                 continue
@@ -328,30 +330,32 @@ def fetch_publications():
     print("\nFETCH PUBLICATIONS...")
     url = "https://frisr4.researchportal.be/ws/ResearchOutputService"
     headers = {"content-type": "application/xml"}
-    dataproviders = [#"KULeuven"    stops at 207, None: "Bodemkundige_Dienst_van_Belgie","Thomas_More_Kempen", Done "LSEC","Biogas-E","Thomas_More_Mechelen","WTCB","Plantentuin","Arteveldehogeschool","Centexbel","DSPvalley","Hogeschool_Gent","ILVO","ITG","Proefcentrum_Sierteelt","VIL","FlandersFood",
-        "UAntwerpen","Pack4Food","PSGroenteteelt","Departement_Omgeving","KMDA","FlandersBikeValley","VLIZ","SIM","Provincie_Vlaams_Brabant","Departement_MOW","PCAardappelteelt","Katholieke_hogeschool_VIVES_Zuid","VUBrussel","PCHoogstraten","Odisee","BILastechniek","Inagro","KMSKA","SIRRIS","PCFruit","AlamireFoundation","UGent","UCLL","Hogeschool_PXL","UHasselt","HogereZeevaartSchool","PCGroenteteelt","Karel_de_Grote_Hogeschool","INBO","Hogeschool_West-Vlaanderen"
+    dataproviders = [#"KULeuven" "UAntwerpen","VUBrussel", "UGent", (unfinished), 
+        #Done: "Bodemkundige_Dienst_van_Belgie","Thomas_More_Kempen", Done "LSEC","Biogas-E","Thomas_More_Mechelen","WTCB","Plantentuin","Arteveldehogeschool","Centexbel","DSPvalley","Hogeschool_Gent","ILVO","ITG","Proefcentrum_Sierteelt","VIL","FlandersFood", "Pack4Food","PSGroenteteelt","Departement_Omgeving","KMDA","FlandersBikeValley","VLIZ","SIM","Provincie_Vlaams_Brabant","Departement_MOW","PCAardappelteelt","Katholieke_hogeschool_VIVES_Zuid","PCHoogstraten","Odisee","BILastechniek","Inagro","KMSKA","SIRRIS","PCFruit","AlamireFoundation",
+        "UCLL","Hogeschool_PXL","UHasselt","HogereZeevaartSchool","PCGroenteteelt","Karel_de_Grote_Hogeschool","INBO","Hogeschool_West-Vlaanderen"
     ]
+    
     for dataprovider in dataproviders:
         print("\nFETCH PUBLICATIONS FOR " + dataprovider)
         body = """
             <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-                <soap:Body>
-                    <ns1:getResearchOutput xmlns:ns1="http://fris.ewi.be/">
-                        <researchOutputCriteria xmlns="http://fris.ewi.be/criteria">
-                            <window>
-                                <pageSize>1000</pageSize>
-                                <pageNumber>%s</pageNumber>
-                            </window>
-                            <dataProviders negated="false">
-                                <identifier>""" + dataprovider + """</identifier>
-                            </dataProviders>
-                            <type>
-                                <identifier>Journal Article</identifier>
-                            </type>
-                        </researchOutputCriteria>
-                    </ns1:getResearchOutput>
-                </soap:Body>
-            </soap:Envelope>
+            <soap:Body>
+                <ns1:getResearchOutput xmlns:ns1="http://fris.ewi.be/">
+                    <researchOutputCriteria xmlns="http://fris.ewi.be/criteria">
+                        <window>
+                            <pageSize>100</pageSize>
+                            <pageNumber>%s</pageNumber>
+                        </window>
+                        <dataProviders>
+                            <identifier>"""+dataprovider +"""</identifier>
+                        </dataProviders>
+                        <type>
+                            <identifier>Journal Article</identifier>
+                        </type>
+                    </researchOutputCriteria>
+                </ns1:getResearchOutput>
+            </soap:Body>
+        </soap:Envelope>
             """
         fetch_from_service(url, headers, body, max_pages=1500, destination="data_publications_2024_5\\" + dataprovider + "page%s.xml")
 
