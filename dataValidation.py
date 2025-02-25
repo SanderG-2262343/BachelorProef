@@ -18,15 +18,16 @@ faiss_store = FAISS.load_local("data_projects_2024_5_vector_store_TitleAbstract_
 
 def testEmbeddingNomic(texts,titles,projIds,vector_store):
     successfulmatch = 0
-    for i in range(0, len(texts)):
+    for i in range(0, len(texts) - 10000):
         if i % 100 == 0:
             print(f"Processing publication {i}")
 
         
-        results = vector_store.similarity_search(titles[i] + texts[i], 100)
+        results = vector_store.similarity_search(titles[i] + texts[i], 2)
         #results = vector_store.search(titles[i] + texts[i],'mmr',k = 5)
         for result in results:
-            if result.id in projIds[i]:
+            id = result.metadata['doc_id']
+            if id in projIds[i]:
                 successfulmatch += 1
                 break
     return successfulmatch
