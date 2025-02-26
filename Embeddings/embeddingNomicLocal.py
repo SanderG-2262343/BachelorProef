@@ -5,17 +5,7 @@ from langchain_community.vectorstores import FAISS
 import asyncio
 import os
 
-# Load the data assuming the data is already preprocessed
-project_data = pd.read_csv('data_projects_2024_5.csv')
 
-
-# Drop rows with empty abstracts
-project_data = project_data[project_data['cfAbstr'].str.len() >= 20] 
-project_data.dropna(how='any', inplace=True) #one project with no abstract
-
-
-# Initialize the OllamaEmbeddings object assume the model already pulled
-embeddings = OllamaEmbeddings(model="nomic-embed-text")
 
 
 
@@ -52,6 +42,7 @@ def convertToFaiss():
 
     embedding_model = OllamaEmbeddings(model="nomic-embed-text")
 
+
     for i in range(0, len(texts), 1000):
         print(f"Processing batch {i // 1000}")
         text_embeddings = zip(texts[i:i+1000], vectors[i:i+1000])
@@ -59,17 +50,33 @@ def convertToFaiss():
 
     faiss_store.save_local("data_projects_2024_5_vector_store_TitleAbstract_faiss")
 
-convertToFaiss()
 
-if not os.path.exists("data_projects_2024_5_vector_store_TitleAbstract"):
+if __name__ == "__main__":
 
-    vector_store = Chroma(embedding_function=embeddings,persist_directory = "data_projects_2024_5_vector_store_TitleAbstract")
+    # Load the data assuming the data is already preprocessed
+    project_data = pd.read_csv('data_projects_2024_5.csv')
 
-    asyncio.run(process_batches(project_data,vector_store,100))
-    print("All tasks completed")
 
-else:
-    vector_store = Chroma(embedding_function=embeddings,persist_directory = "data_projects_2024_5_vector_store_TitleAbstract")
+    # Drop rows with empty abstracts
+    project_data = project_data[project_data['cfAbstr'].str.len() >= 20] 
+    project_data.dropna(how='any', inplace=True) #one project with no title
+
+
+    # Initialize the OllamaEmbeddings object assume the model already pulled
+    embeddings = OllamaEmbeddings(model="nomic-embed-text")
+
+
+    convertToFaiss()
+
+    if not os.path.exists("data_projects_2024_5_vector_store_TitleAbstract"):
+
+        vector_store = Chroma(embedding_function=embeddings,persist_directory = "data_projects_2024_5_vector_store_TitleAbstract")
+
+        asyncio.run(process_batches(project_data,vector_store,100))
+        print("All tasks completed")
+
+    else:
+        vector_store = Chroma(embedding_function=embeddings,persist_directory = "data_projects_2024_5_vector_store_TitleAbstract")
 
 
 
