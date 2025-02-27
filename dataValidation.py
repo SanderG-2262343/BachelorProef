@@ -1,15 +1,11 @@
 import pandas as pd
-import top2vec
 from langchain_ollama import OllamaEmbeddings
 from langchain_chroma import Chroma
 from langchain_voyageai import VoyageAIEmbeddings
-from langchain_community.vectorstores import FAISS
-import voyageai
+#from langchain_community.vectorstores import FAISS
 import top2vec.top2vec
 import os
 from dotenv import load_dotenv
-import voyageai.client
-import time
 
 load_dotenv()
 
@@ -39,18 +35,20 @@ def runTestsNomic(texts,titles,projIds):
     vector_store = Chroma(embedding_function=NomicEmbedding,persist_directory = "data_projects_2024_5_vector_store_TitleAbstract")
     for i in [1,2,3,5]:
         successfulmatch = testEmbeddingNomic(texts,titles,projIds,vector_store,i)
-        print(f"Success Rate of VoyageAI with Top {i}: {successfulmatch * 100 / len(texts)}%")
+        print(f"Success Rate of Nomic with Top {i}: {successfulmatch * 100 / len(texts)}%")
 
     for i in range(10, 110, 10):
         successfulmatch = testEmbeddingNomic(texts,titles,projIds,vector_store,i)
-        print(f"Success Rate of VoyageAI with Top {i}: {successfulmatch * 100 / len(texts)}%")
+        print(f"Success Rate of Nomic with Top {i}: {successfulmatch * 100 / len(texts)}%")
 
 def testEmbeddingVoyageAI(texts,titles,projIds,vector_store,top_k = 2):
     successfulmatch = 0
     embeddingsVoyage = VoyageAIEmbeddings(model="voyage-3-large",api_key=os.environ['VOYAGE_API_KEY'])
 
     #store embeddings locally for multiple runs
+    #combined = ["Instruct: Compare this publication with a project \n Query:" + title + " " + text for title, text in zip(titles, texts)]
     combined = [title + " " + text for title, text in zip(titles, texts)]
+
     if not os.path.exists("embeddingsVoyage.csv"):
         embeddingsVoyage.batch_size = 128
         embeddings = embeddingsVoyage.embed_documents(combined)
@@ -65,7 +63,6 @@ def testEmbeddingVoyageAI(texts,titles,projIds,vector_store,top_k = 2):
         #if i % 100 == 0:
             #print(f"Processing publication {i}")
 
-        vector_store = Chroma(embedding_function=embeddings,persist_directory = "data_projects_2024_5_vector_store_VoyageAI")
         results = vector_store.similarity_search_by_vector(embeddings[i], top_k)
         #results = vector_store.similarity_search(titles[i] + texts[i], 2)
         #results = vector_store.search(titles[i] + texts[i],'mmr',k = 5)
@@ -105,8 +102,8 @@ def testEmbeddingNomic(texts,titles,projIds,vector_store,top_k = 2):
 
 
     for i in range(0, len(texts)):
-        if i % 100 == 0:
-            print(f"Processing publication {i}")
+        #if i % 100 == 0:
+            #print(f"Processing publication {i}")
 
         results = vector_store.similarity_search_by_vector(embeddings[i], top_k)
         #results = vector_store.similarity_search(titles[i] + " " + texts[i], 3)
@@ -123,17 +120,18 @@ def testEmbeddingNomic(texts,titles,projIds,vector_store,top_k = 2):
 
 
 def testTop2VecModel(texts,titles,projIds):
-    vector_store = Chroma(persist_directory="data_projects_2024_5_vector_store_top2vec")
+    vector_store = Chroma(persist_directory="data_projects_2024_5_vector_store_top2vec_2")
     successfulmatch = 0
-    model = top2vec.top2vec.load("top2vec_model")
+    model = top2vec.top2vec.load("top2vec_model_deep-learn")
     for i in range(0, len(texts)):
         if i % 100 == 0:
             print(f"Processing publication {i}")
-        embedding = model.model.infer_vector((titles[i] + " " + texts[i]).split())
-        results = vector_store.similarity_search_by_vector(embedding, 100)
+        results = model.query_documents((titles[i] + " " + texts[i]),num_docs=1)
+
+        #results = vector_store.similarity_search_by_vector(embedding, 100)
         #results = vector_store.search(titles[i] + texts[i],'mmr',k = 5)
-        for result in results:
-            if result.id in projIds[i]:
+        for id in results[2]:
+            if id in projIds[i]:
                 successfulmatch += 1
                 break
     return successfulmatch
@@ -143,12 +141,13 @@ titles = df['cfTitle'].tolist()
 projIds = df['cfProjId'].tolist()
 #successfulmatch = testEmbeddingNomic(texts,titles,projIds,Chroma(embedding_function=embeddings,persist_directory = "data_projects_2024_5_vector_store"))
 #successfulmatch = testEmbeddingNomic(texts,titles,projIds,faiss_store)
-#successfulmatch = testEmbeddingNomic(texts,titles,projIds,Chroma(embedding_function=embeddings,persist_directory = "data_projects_2024_5_vector_store_TitleAbstract"))
-#successfulmatch = testEmbeddingVoyageAI(texts,titles,projIds,Chroma(embedding_function=embeddingsVoyage,persist_directory = "data_projects_2024_5_vector_store_VoyageAI"))
-#successfulmatch2 = testTop2VecModel(texts,titles,projIds)
+#successfulmatch = testEmbeddingNomic(texts,titles,projIds,Chroma(embedding_function=NomicEmbedding,persist_directory = "data_projects_2024_5_vector_store"),2)
+#embeddingsVoyage = VoyageAIEmbeddings(model="voyage-3-large",api_key=os.environ['VOYAGE_API_KEY'])
+#successfulmatch = testEmbeddingVoyageAI(texts,titles,projIds,Chroma(embedding_function=embeddingsVoyage,persist_directory = "data_projects_2024_5_vector_store_VoyageAI"),100)
+successfulmatch2 = testTop2VecModel(texts,titles,projIds)
 #print(f"Success Rate of Nomic: {successfulmatch * 100 / len(texts)}%")
-#print(f"Success Rate of Top2Vec: {successfulmatch2 * 100 / len(texts)}%")
+print(f"Success Rate of Top2Vec: {successfulmatch2 * 100 / len(texts)}%")
 
 #runTestsVoyageAi(texts,titles,projIds)
-runTestsNomic(texts,titles,projIds)
+#runTestsNomic(texts,titles,projIds)
 

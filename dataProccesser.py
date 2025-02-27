@@ -5,6 +5,12 @@ from bs4 import BeautifulSoup
 import re
 
 
+def cleanUpProjectData():
+    df = pd.read_csv('data_projects_2024_5.csv')
+    df = df[df['cfAbstr'].str.len() >= 50]
+    df.to_csv('data_projects_2024_5_clean.csv', index=False)
+
+
 
 def extractTextFromHtml(html):
     soup = BeautifulSoup(html, 'html.parser')
@@ -89,4 +95,7 @@ def extractPublicationsToCSV():
 
 
 #extractProjectsToCSV()
-extractPublicationsToCSV()
+#extractPublicationsToCSV()
+
+
+cleanUpProjectData()

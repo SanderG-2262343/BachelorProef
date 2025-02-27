@@ -6,9 +6,10 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_community.docstore.in_memory import InMemoryDocstore
 
-
+from dotenv import load_dotenv
 import getpass
 import os
+load_dotenv()
 
 
 if not os.environ.get("OPENAI_API_KEY"):
@@ -31,4 +32,6 @@ doc_ids = project_data['cfProjId'].tolist()
 for i in range(0, len(texts), batch_size):
     print(f"Processing batch {i // batch_size}")
     vector_store.add_texts(texts=texts[i:i+batch_size], metadatas=[{"doc_id": doc_id} for doc_id in doc_ids[i:i+batch_size]])
+
+vector_store.save_local("faiss_index")
 
