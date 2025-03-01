@@ -15,15 +15,16 @@ if not os.path.exists("data_projects_2024_5_vector_store_VoyageAI"):
 load_dotenv()
 
 # Load the data assuming the data is already preprocessed
-project_data = pd.read_csv('data_projects_2024_5.csv')
+project_data = pd.read_csv('data_projects_2024_5_clean.csv')
 
 # Drop rows with empty abstracts
 project_data = project_data[project_data['cfAbstr'].str.len() >= 20] 
 project_data.dropna(how='any', inplace=True) #one project with no title
 
 embeddings = VoyageAIEmbeddings(model="voyage-3-large",api_key=os.environ['VOYAGE_API_KEY'])
+embeddings.batch_size = 128
 
-vector_store = Chroma(embedding_function=embeddings,persist_directory = "data_projects_2024_5_vector_store_VoyageAI")
+vector_store = Chroma(embedding_function=embeddings,persist_directory = "data_projects_2024_5_vector_store_VoyageAI_clean")
 
 
 #4.9mil

@@ -69,6 +69,7 @@ def fetch_from_service(url, headers, body, max_pages, destination):
             #time.sleep(5)
             retries = 0
     print(skippedpage)
+    
 
 
 def fetch_organisations():
@@ -180,7 +181,7 @@ def fetch_persons():
                 <ns1:getPersons xmlns:ns1="http://fris.ewi.be/">
                     <personCriteria xmlns="http://fris.ewi.be/criteria">
                         <window>
-                            <pageSize>5000</pageSize>
+                            <pageSize>1000</pageSize>
                             <pageNumber>%s</pageNumber>
                             <orderings>
                                 <order>
@@ -195,7 +196,7 @@ def fetch_persons():
             </soap:Body>
         </soap:Envelope>
         """
-    fetch_from_service(url, headers, body, max_pages=20, destination="data_persons/page%s.xml")
+    fetch_from_service(url, headers, body, max_pages=20, destination="data_people/page%s.xml")
 
 
 def fetch_projects():
@@ -387,7 +388,8 @@ def fetch_funding_code():
 # fetch_persons()
 # fetch_projects()
 # fetch_journals()
-fetch_publications()
+#fetch_publications()
+fetch_persons()
 # fetch_funding_code()
 
 

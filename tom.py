@@ -2,13 +2,14 @@ import zeep  # RC: needed to make wsdl soap requests. https://docs.python-zeep.o
 import datetime
 import os
 from lxml import etree
+import re
 
 parser = etree.XMLParser(recover=True)
 
-PROJECTS = False
+PROJECTS = True
 
 pageNumber = 0  # RC: pageNumber start value
-pageSize = 20  # RC: pageSize
+pageSize = 1000  # RC: pageSize
 previousUUID = '' # RC: needed to compare the UUID with the previous one. If it's the same, exit the program
 
 xml = {
@@ -100,14 +101,26 @@ while pageNumber < totalRequests:
 
     if PROJECTS:
         os.makedirs('./data_projects_2024_5_2', exist_ok=True)
-        open('./data_projects_2024_5_2/page%s.xml' % pageNumber, 'wb').write(soapResult.content)
+        with open('./data_projects_2024_5_2/page%s.xml' % pageNumber, 'w',encoding="utf-8") as f:
+            clean_text = re.sub(r'[^\x20-\x7E\t\n\r]', '', soapResult.text)
+            f.write(clean_text)
+            f.close()
     else:
         script_dir = os.path.dirname(os.path.abspath(__file__))
         destination_path = os.path.join(script_dir, "data_publications_2024_5/page%s.xml" % pageNumber)
         open(destination_path, 'wb').write(soapResult.content)
     
 
-    if not PROJECTS:
+    
+    timeDiff = datetime.datetime.now() - previousTime
+    previousTime = datetime.datetime.now()        
+    timeDiff = str(timeDiff.total_seconds())
+
+    pageNumber = pageNumber + 1
+
+    if PROJECTS:
+        print('Page number: ' + str(pageNumber))
+    else:
 
         # RC: find all the journals contributions in the soap result
         jrnlContribs = myroot.findall('./soap:Body/fris:getResearchOutputResponse/queryResult/fris:journalContribution', namespaces)
@@ -126,11 +139,7 @@ while pageNumber < totalRequests:
 
             teller = teller + 1
 
-        timeDiff = datetime.datetime.now() - previousTime
-        previousTime = datetime.datetime.now()        
-        timeDiff = str(timeDiff.total_seconds())
-
-        pageNumber = pageNumber + 1
+        
         if len(JRNL_CONTRIB_UUID) == 0:
             pageNumber = pageNumber - 1
             JRNL_CONTRIB_UUID.append('N/A')
@@ -145,7 +154,7 @@ while pageNumber < totalRequests:
                 print(output)
                 exit()
             previousUUID = JRNL_CONTRIB_UUID[0]
-    break
+    
 
 print('Done ...')
 

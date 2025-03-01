@@ -4,6 +4,8 @@ import glob
 from bs4 import BeautifulSoup
 import re
 
+namespaces = {'soap': 'http://schemas.xmlsoap.org/soap/envelope/',
+            'fris': 'http://fris.ewi.be/'}
 
 def cleanUpProjectData():
     df = pd.read_csv('data_projects_2024_5.csv')
@@ -15,6 +17,8 @@ def cleanUpProjectData():
 
 
 def extractTextFromHtml(html):
+    if html is None:
+        return ''
     soup = BeautifulSoup(html, 'html.parser')
     text = soup.get_text(separator=" ")
     return re.sub(r'\s+', ' ', text).strip()
@@ -81,6 +85,8 @@ def getProjectIds(publication):
 def extractPublicationsToCSV():
     df = pd.DataFrame()
 
+    
+
     for xml_file in glob.glob("data_publications_2024_5/*.xml"):
         print(f"Processing file: {xml_file}")
         tree = ET.parse(xml_file)
@@ -114,10 +120,134 @@ def extractPublicationsToCSV():
 
     
     df.to_csv('data_publications_2024_5_2.csv', index=False)
+    
+
+def getParticipantsFris(project):
+    participants = project.findall('.//fris:participants/fris:participant',namespaces)   
+
+    participantsList = []
+    for participant in participants:
+        try:
+            name = participant.find('./fris:assignment/fris:person/fris:name',namespaces)
+            participantsList.append(name.find('./fris:firstName',namespaces).text + " " + name.find('./fris:lastName',namespaces).text)
+        except AttributeError as e:  # if any of the fields are missing, skip this participant
+            pass
+    return ", ".join(participantsList)
+
+def getDisciplinesFris(project, flemish = False):
+    if flemish:
+        disciplines = project.findall('.//fris:flemishDisciplines/fris:flemishDisciplines',namespaces)
+    else:
+        disciplines = project.findall('.//fris:disciplines/fris:discipline',namespaces)
+
+    disciplinesList = []
+    for discipline in disciplines:
+        if flemish:
+            disciplinesList.append(discipline.attrib['term'] +":" + discipline.find('./fris:description/fris:texts/fris:text[@locale="en"]',namespaces).text)
+        else:
+            disciplinesList.append(discipline.find('./fris:description/fris:texts/fris:text[@locale="en"]',namespaces).text)
+    return ";".join(disciplinesList)
 
 
-extractProjectsToCSV()
+# Function to extract projects from FRIS to CSV with newer format
+def extractProjectsToCSVFris():
+    df = pd.DataFrame()
+
+    for xml_file in glob.glob("data_projects_2024_5_2/*.xml"):
+        print(f"Processing file: {xml_file}")
+        tree = ET.parse(xml_file)
+
+        root = tree.getroot()
+
+        projects = root.findall('.//fris:project', namespaces)
+
+
+        rows = []
+        for project in projects:
+            try:               
+
+                rows.append({   
+                'projId': project.attrib['uuid'],
+                'title': extractTextFromHtml(project.find('./fris:name/fris:texts/fris:text[@locale="en"]',namespaces).text),
+                'abstract': extractTextFromHtml(project.find('./fris:projectAbstract/fris:texts/fris:text[@locale="en"]',namespaces).text),
+                'participants': getParticipantsFris(project),
+                'disciplines':  getDisciplinesFris(project),
+                'flemishDisciplines': getDisciplinesFris(project,flemish=True)
+                })
+            except AttributeError as e:
+                pass
+        temp_df = pd.DataFrame(rows)
+        df = pd.concat([df, temp_df], ignore_index=True)
+        
+
+    df = df[df['abstract'].str.len() >= 50] # remove projects with short abstracts
+    df = df[df['title'].str.len() >= 5] # remove projects with no titles
+
+    # remove projects for profferships and tenure tracks
+    df = df[df['abstract'] != "A BOF-ZAP professorship granted by the Special Research Fund is a primarily research-oriented position and is made available for excellent researchers with a high-quality research programme."]
+    df = df[df['abstract'] != "A BOF-TT mandate holder receives an appointment as a Tenure Track with mainly research assignment. The salary costs are charged to the Special research Fund (BOF)."]
+    
+    df.to_csv('data_projects_2024_5_FRIS.csv', index=False)
+
+
+def extractPublicationsToCSVFris():
+    df = pd.DataFrame()
+
+    for xml_file in glob.glob("data_publications_2024_5/*.xml"):
+        print(f"Processing file: {xml_file}")
+
+        with open(xml_file, "r", encoding="utf-8", errors="replace") as f:
+            xml_content = f.read() 
+
+        xml_content = re.sub(r'[^\x09\x0A\x0D\x20-\x7E\u0080-\uFFFF]', '', xml_content)
+        tree = ET.ElementTree(ET.fromstring(xml_content))
+
+        root = tree.getroot()
+
+        publications = root.findall('.//fris:journalContribution', namespaces)
+
+        rows = []
+        for publication in publications:
+            try:               
+
+                rows.append({   
+                'id': publication.attrib['uuid'],
+                'title': extractTextFromHtml(publication.find('./fris:title/fris:texts/fris:text[@locale="en"]',namespaces).text),
+                'abstract': extractTextFromHtml(publication.find('./fris:researchAbstract/fris:texts/fris:text[@locale="en"]',namespaces).text),
+                'participants': getParticipantsFris(publication),
+                'disciplines':  getDisciplinesFris(publication),
+                'flemishDisciplines': getDisciplinesFris(publication,flemish=True)
+                })
+            except AttributeError as e:
+                pass
+        temp_df = pd.DataFrame(rows)
+        df = pd.concat([df, temp_df], ignore_index=True)
+
+
+    df = df[df['abstract'].str.len() >= 50] # remove projects with short abstracts
+    df = df[df['title'].str.len() >= 5] # remove projects with no titles
+
+    # remove projects for profferships and tenure tracks
+    
+    df.to_csv('data_publications_2024_5_FRIS.csv', index=False)
+
+
+def getSimilarTestData():
+    df = pd.read_csv('data_publications_2024_5.csv')
+    df2 = pd.read_csv('data_publications_2024_5_FRIS.csv',dtype={'participants': str, 'disciplines': str, 'flemishDisciplines': str})
+
+    df.dropna(how='any', inplace=True)   #Remove any with no projID matched
+
+    df_merged = df.merge(df2[['id','participants']], left_on='cfPublId', right_on='id', how='left')
+    df_merged.drop(columns=['id'],inplace=True)
+    df_merged.to_csv('data_publications_2024_5_FRIS_matched.csv', index=False)
+
+
+#extractProjectsToCSV()
 #extractPublicationsToCSV()
+#extractProjectsToCSVFris()
+#extractPublicationsToCSVFris()
+getSimilarTestData()
 
 
 #cleanUpProjectData()
