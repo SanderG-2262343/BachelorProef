@@ -14,7 +14,7 @@ from langchain_nomic import NomicEmbeddings
 
 embeddings = NomicEmbeddings(model="nomic-embed-text-v1.5")
 
-project_data = pd.read_csv('data_projects_2024_5.csv')
+project_data = pd.read_csv('data/csvs/data_projects_2024_5.csv')
 
 index = faiss.IndexFlatL2(len(embeddings.embed_query("hello world")))
 

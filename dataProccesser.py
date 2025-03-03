@@ -8,11 +8,11 @@ namespaces = {'soap': 'http://schemas.xmlsoap.org/soap/envelope/',
             'fris': 'http://fris.ewi.be/'}
 
 def cleanUpProjectData():
-    df = pd.read_csv('data_projects_2024_5.csv')
+    df = pd.read_csv('data/csvs/data_projects_2024_5.csv')
     df = df[df['cfAbstr'].str.len() >= 50]
     df = df[df['cfAbstr'] != "A BOF-ZAP professorship granted by the Special Research Fund is a primarily research-oriented position and is made available for excellent researchers with a high-quality research programme."]
     df = df[df['cfAbstr'] != "A BOF-TT mandate holder receives an appointment as a Tenure Track with mainly research assignment. The salary costs are charged to the Special research Fund (BOF)."]
-    df.to_csv('data_projects_2024_5_clean.csv', index=False)
+    df.to_csv('data/csvs/data_projects_2024_5_clean.csv', index=False)
 
 
 
@@ -24,7 +24,7 @@ def extractTextFromHtml(html):
     return re.sub(r'\s+', ' ', text).strip()
 
 
-def getParticapants(participants):
+def getParticipants(participants):
     names = []
     for participant in participants:
         try:
@@ -36,7 +36,7 @@ def getParticapants(participants):
 def extractProjectsToCSV():
     df = pd.DataFrame()
 
-    for xml_file in glob.glob("data_projects_2024_5/*.xml"):
+    for xml_file in glob.glob("data/rawXml/data_projects_2024_5/*.xml"):
         print(f"Processing file: {xml_file}")
         tree = ET.parse(xml_file)
 
@@ -59,7 +59,7 @@ def extractProjectsToCSV():
                 'cfProjId': project.find('cfProjId').text,
                 'cfTitle': extractTextFromHtml(project.find('cfTitle[@cfLangCode="en"]').text),
                 'cfAbstr': extractTextFromHtml(project.find('cfAbstr[@cfLangCode="en"]').text),
-                'cfParticipants': getParticapants(participants)
+                'cfParticipants': getParticipants(participants)
                 })
             except:   # if any of the fields are missing, skip this project
                 pass
@@ -71,7 +71,7 @@ def extractProjectsToCSV():
     df = df[df['cfAbstr'].str.len() >= 50]
     df = df[df['cfAbstr'] != "A BOF-ZAP professorship granted by the Special Research Fund is a primarily research-oriented position and is made available for excellent researchers with a high-quality research programme."]
     df = df[df['cfAbstr'] != "A BOF-TT mandate holder receives an appointment as a Tenure Track with mainly research assignment. The salary costs are charged to the Special research Fund (BOF)."]
-    df.to_csv('data_projects_2024_5_particapants.csv', index=False)
+    df.to_csv('data/csvs/data_projects_2024_5_particapants.csv', index=False)
 
 
 def getProjectIds(publication):
@@ -87,7 +87,7 @@ def extractPublicationsToCSV():
 
     
 
-    for xml_file in glob.glob("data_publications_2024_5/*.xml"):
+    for xml_file in glob.glob("data/rawXml/data_publications_2024_5/*.xml"):
         print(f"Processing file: {xml_file}")
         tree = ET.parse(xml_file)
 
@@ -119,7 +119,7 @@ def extractPublicationsToCSV():
         df = pd.concat([df, temp_df], ignore_index=True)
 
     
-    df.to_csv('data_publications_2024_5_2.csv', index=False)
+    df.to_csv('data/csvs/data_publications_2024_5_2.csv', index=False)
     
 
 def getParticipantsFris(project):
@@ -153,7 +153,7 @@ def getDisciplinesFris(project, flemish = False):
 def extractProjectsToCSVFris():
     df = pd.DataFrame()
 
-    for xml_file in glob.glob("data_projects_2024_5_2/*.xml"):
+    for xml_file in glob.glob("data/rawXml/data_projects_2024_5_2/*.xml"):
         print(f"Processing file: {xml_file}")
         tree = ET.parse(xml_file)
 
@@ -187,13 +187,13 @@ def extractProjectsToCSVFris():
     df = df[df['abstract'] != "A BOF-ZAP professorship granted by the Special Research Fund is a primarily research-oriented position and is made available for excellent researchers with a high-quality research programme."]
     df = df[df['abstract'] != "A BOF-TT mandate holder receives an appointment as a Tenure Track with mainly research assignment. The salary costs are charged to the Special research Fund (BOF)."]
     
-    df.to_csv('data_projects_2024_5_FRIS.csv', index=False)
+    df.to_csv('data/csvs/data_projects_2024_5_FRIS.csv', index=False)
 
 
 def extractPublicationsToCSVFris():
     df = pd.DataFrame()
 
-    for xml_file in glob.glob("data_publications_2024_5/*.xml"):
+    for xml_file in glob.glob("data/rawXml/data_publications_2024_5/*.xml"):
         print(f"Processing file: {xml_file}")
 
         with open(xml_file, "r", encoding="utf-8", errors="replace") as f:
@@ -229,18 +229,18 @@ def extractPublicationsToCSVFris():
 
     # remove projects for profferships and tenure tracks
     
-    df.to_csv('data_publications_2024_5_FRIS.csv', index=False)
+    df.to_csv('data/csvs/data_publications_2024_5_FRIS.csv', index=False)
 
 
 def getSimilarTestData():
-    df = pd.read_csv('data_publications_2024_5.csv')
-    df2 = pd.read_csv('data_publications_2024_5_FRIS.csv',dtype={'participants': str, 'disciplines': str, 'flemishDisciplines': str})
+    df = pd.read_csv('data/csvs/data_publications_2024_5.csv')
+    df2 = pd.read_csv('data/csvs/data_publications_2024_5_FRIS.csv',dtype={'participants': str, 'disciplines': str, 'flemishDisciplines': str})
 
     df.dropna(how='any', inplace=True)   #Remove any with no projID matched
 
     df_merged = df.merge(df2[['id','participants']], left_on='cfPublId', right_on='id', how='left')
     df_merged.drop(columns=['id'],inplace=True)
-    df_merged.to_csv('data_publications_2024_5_FRIS_matched.csv', index=False)
+    df_merged.to_csv('data/csvs/data_publications_2024_5_FRIS_matched.csv', index=False)
 
 
 #extractProjectsToCSV()

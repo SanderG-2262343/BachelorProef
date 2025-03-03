@@ -27,7 +27,7 @@ async def process_batches(project_data,vector_store, batch_size=100):
         await asyncio.gather(*sub_tasks)
 
 def convertToFaiss():
-    vector_store = Chroma(embedding_function=embeddings,persist_directory = "data_projects_2024_5_vector_store_TitleAbstract")
+    vector_store = Chroma(embedding_function=embeddings,persist_directory = "data/vectorStores/data_projects_2024_5_vector_store_TitleAbstract")
 
     texts = []  
     vectors = []  
@@ -48,13 +48,13 @@ def convertToFaiss():
         text_embeddings = zip(texts[i:i+1000], vectors[i:i+1000])
         faiss_store = FAISS.from_embeddings(text_embeddings,embedding_model,metadatas=[{"doc_id": doc_id} for doc_id in ids[i:i+1000]])
 
-    faiss_store.save_local("data_projects_2024_5_vector_store_TitleAbstract_faiss")
+    faiss_store.save_local("data/vectorStores/data_projects_2024_5_vector_store_TitleAbstract_faiss")
 
 
 if __name__ == "__main__":
 
     # Load the data assuming the data is already preprocessed
-    project_data = pd.read_csv('data_projects_2024_5.csv')
+    project_data = pd.read_csv('data/csvs/data_projects_2024_5.csv')
 
 
     # Drop rows with empty abstracts
@@ -68,15 +68,17 @@ if __name__ == "__main__":
 
     convertToFaiss()
 
-    if not os.path.exists("data_projects_2024_5_vector_store_TitleAbstract"):
+    vectorStoreLocation = "data/vectorStores/data_projects_2024_5_vector_store_TitleAbstract"
 
-        vector_store = Chroma(embedding_function=embeddings,persist_directory = "data_projects_2024_5_vector_store_TitleAbstract")
+    if not os.path.exists(vectorStoreLocation):
+
+        vector_store = Chroma(embedding_function=embeddings,persist_directory = vectorStoreLocation)
 
         asyncio.run(process_batches(project_data,vector_store,100))
         print("All tasks completed")
 
     else:
-        vector_store = Chroma(embedding_function=embeddings,persist_directory = "data_projects_2024_5_vector_store_TitleAbstract")
+        vector_store = Chroma(embedding_function=embeddings,persist_directory = vectorStoreLocation)
 
 
 

@@ -178,6 +178,7 @@ data_people/
 embeddingsNomic.csv
 embeddingsVoyage.csv
 embeddingsVoyageI.csv
+data/
 ScoresEmbeddings.xlsx
 ~$ScoresEmbeddings.xlsx
 
