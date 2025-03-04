@@ -4,6 +4,9 @@ import glob
 from bs4 import BeautifulSoup
 import re
 
+from langchain_voyageai import VoyageAIEmbeddings
+from langchain_chroma import Chroma
+
 namespaces = {'soap': 'http://schemas.xmlsoap.org/soap/envelope/',
             'fris': 'http://fris.ewi.be/'}
 
