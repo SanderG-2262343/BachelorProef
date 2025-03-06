@@ -2,12 +2,14 @@ import pandas as pd
 from langchain_ollama import OllamaEmbeddings
 from langchain_chroma import Chroma
 from langchain_voyageai import VoyageAIEmbeddings
+import voyageai
 #from langchain_community.vectorstores import FAISS
 import top2vec.top2vec
 import os
 import shutil
 from dotenv import load_dotenv
 import numpy as np
+import voyageai.object
 
 load_dotenv()
 
@@ -46,7 +48,7 @@ def mergeEmbeddingsVectorStore():
 
 def runTestsVoyageAi(texts,titles,projIds):
     embeddingsVoyage = VoyageAIEmbeddings(model="voyage-3-large",api_key=os.environ['VOYAGE_API_KEY'])
-    vector_store = Chroma(embedding_function=embeddingsVoyage,persist_directory = "data/vectorStores/data_projects_2024_5_vector_store_combined")
+    vector_store = Chroma(embedding_function=embeddingsVoyage,persist_directory = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI")
     #participants = df['participants'].tolist()
     for i in [1,2,3,5]:
         successfulmatch = testEmbeddingVoyageAI(texts,titles,projIds,vector_store,i)
@@ -80,24 +82,32 @@ def testEmbeddingVoyageAI(texts,titles,projIds,vector_store,top_k = 2,participan
     successfulmatch = 0
     embeddingsVoyage = VoyageAIEmbeddings(model="voyage-3-large",api_key=os.environ['VOYAGE_API_KEY'])
 
-    #store embeddings locally for multiple runs
-    #combined = ["Instruct: Compare this publication with a project \n Query:" + title + " " + text for title, text in zip(titles, texts)]
-    combined = [title + " " + text for title, text in zip(titles, texts)]
+    voyageaiEmbed = voyageai.Client(api_key=os.environ['VOYAGE_API_KEY'])
 
-    embeddingsSave = "embeddingsVoyage_Title.csv"
-    embeddingsSave = "data/embeddingSaves" + embeddingsSave
+    #store embeddings locally for multiple runs
+    combined = ["Instruct: Compare this publication with a project \n Text:" + title + " " + text for title, text in zip(titles, texts)]
+    #combined = [title + " " + text for title, text in zip(titles, texts)]
+
+    embeddingsSave = "embeddingsVoyageQueryInstruct.csv"
+    embeddingsSave = "data/embeddingSaves/" + embeddingsSave
 
     if not os.path.exists(embeddingsSave):
         embeddingsVoyage.batch_size = 128
         #combined = [f"Instruct: Compare this publication with a project \n Query: Title: {title} Participants: {participants} Abstract: {text}" for title, text,participants in zip(titles, texts,participants)]
-        embeddings = embeddingsVoyage.embed_documents(combined)
+        #embeddings = embeddingsVoyage.embed_query(combined)
+
+        for i in range(0, len(combined), 128):
+            if i == 0:
+                embeddings = voyageaiEmbed.embed(combined[i:i+128],model="voyage-3-large",input_type="query").embeddings
+            else:
+                embeddings += voyageaiEmbed.embed(combined[i:i+128],model="voyage-3-large",input_type="query").embeddings
         pd.DataFrame(embeddings).to_csv(embeddingsSave,index=False)
     else:
         embeddings = pd.read_csv(embeddingsSave).values.tolist()
 
-    
+    '''
     embeddingsSave2 = "embeddingsVoyage_Abstract.csv"
-    embeddingsSave2 = "data/embeddingSaves" + embeddingsSave2
+    embeddingsSave2 = "data/embeddingSaves/" + embeddingsSave2
 
     if not os.path.exists(embeddingsSave2):
         embeddingsVoyage.batch_size = 128
@@ -113,13 +123,13 @@ def testEmbeddingVoyageAI(texts,titles,projIds,vector_store,top_k = 2,participan
     
     embeddingsCombined = [np.add(0.2* a, 0.8 * b) for a, b in zip(embeddings, embeddings2)]
     embeddingsCombined = embeddingsCombined / np.linalg.norm(embeddingsCombined,axis=1, keepdims=True)
-    
+    '''
     #reranker = voyageai.Client()
     for i in range(0, len(texts)):
         #if i % 100 == 0:
             #print(f"Processing publication {i}")
 
-        results = vector_store.similarity_search_by_vector(embeddingsCombined[i], top_k)
+        results = vector_store.similarity_search_by_vector(embeddings[i], top_k)
         #results = vector_store.max_marginal_relevance_search_by_vector(embeddings[i],top_k)
         #results = vector_store.similarity_search(titles[i] + texts[i], 2)
         #results = vector_store.search(titles[i] + texts[i],'mmr',k = 5)
@@ -158,6 +168,7 @@ def testEmbeddingNomic(texts,titles,projIds,vector_store,top_k = 2):
     if not os.path.exists(embeddingsSave):
         embeddings = NomicEmbedding.embed_documents(combined)
         pd.DataFrame(embeddings).to_csv(embeddingsSave,index=False)
+        
     else:
         embeddings = pd.read_csv(embeddingsSave).values.tolist()
 
@@ -209,7 +220,7 @@ projIds = df['cfProjId'].tolist()
 #print(f"Success Rate of Top2Vec: {successfulmatch2 * 100 / len(texts)}%")
 
 
-mergeEmbeddingsVectorStore()
+#mergeEmbeddingsVectorStore()
 runTestsVoyageAi(texts,titles,projIds)
 #runTestsNomic(texts,titles,projIds)
 #runTestsTop2Vec(texts,titles,projIds)

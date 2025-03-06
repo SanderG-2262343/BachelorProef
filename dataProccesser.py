@@ -6,16 +6,23 @@ import re
 
 from langchain_voyageai import VoyageAIEmbeddings
 from langchain_chroma import Chroma
+import numpy as np
+import umap
+import matplotlib.pyplot as plt
+import plotly.express as px
+
 
 namespaces = {'soap': 'http://schemas.xmlsoap.org/soap/envelope/',
             'fris': 'http://fris.ewi.be/'}
 
 def cleanUpProjectData():
-    df = pd.read_csv('data/csvs/data_projects_2024_5.csv')
+    df = pd.read_csv('data/csvs/data_projects_2024_5_participants.csv')
     df = df[df['cfAbstr'].str.len() >= 50]
     df = df[df['cfAbstr'] != "A BOF-ZAP professorship granted by the Special Research Fund is a primarily research-oriented position and is made available for excellent researchers with a high-quality research programme."]
     df = df[df['cfAbstr'] != "A BOF-TT mandate holder receives an appointment as a Tenure Track with mainly research assignment. The salary costs are charged to the Special research Fund (BOF)."]
-    df.to_csv('data/csvs/data_projects_2024_5_clean.csv', index=False)
+    df.drop_duplicates(subset=['cfAbstr'], inplace=True)
+    df.to_csv('data/csvs/data_projects_2024_5_participants_noDuplicates.csv', index=False)
+
 
 
 
@@ -71,7 +78,7 @@ def extractProjectsToCSV():
         temp_df = pd.DataFrame(rows)
         df = pd.concat([df, temp_df], ignore_index=True)
 
-    df = df[df['cfAbstr'].str.len() >= 50]
+    df = df[df['cfAbstr'].str.len() >= 200]
     df = df[df['cfAbstr'] != "A BOF-ZAP professorship granted by the Special Research Fund is a primarily research-oriented position and is made available for excellent researchers with a high-quality research programme."]
     df = df[df['cfAbstr'] != "A BOF-TT mandate holder receives an appointment as a Tenure Track with mainly research assignment. The salary costs are charged to the Special research Fund (BOF)."]
     df.to_csv('data/csvs/data_projects_2024_5_particapants.csv', index=False)
@@ -152,6 +159,14 @@ def getDisciplinesFris(project, flemish = False):
     return ";".join(disciplinesList)
 
 
+def getProjectIdsFris(publication):
+    projects = publication.findall('.//fris:researchOuputProjects/fris:researchOutputProject/fris:project',namespaces)
+    projectIds = []
+    for project in projects:
+        projectIds.append(project.attrib['uuid'])
+    return  ",".join(projectIds)
+
+    
 # Function to extract projects from FRIS to CSV with newer format
 def extractProjectsToCSVFris():
     df = pd.DataFrame()
@@ -183,12 +198,9 @@ def extractProjectsToCSVFris():
         df = pd.concat([df, temp_df], ignore_index=True)
         
 
-    df = df[df['abstract'].str.len() >= 50] # remove projects with short abstracts
+    df = df[df['abstract'].str.len() >= 200] # remove projects with short abstracts
     df = df[df['title'].str.len() >= 5] # remove projects with no titles
 
-    # remove projects for profferships and tenure tracks
-    df = df[df['abstract'] != "A BOF-ZAP professorship granted by the Special Research Fund is a primarily research-oriented position and is made available for excellent researchers with a high-quality research programme."]
-    df = df[df['abstract'] != "A BOF-TT mandate holder receives an appointment as a Tenure Track with mainly research assignment. The salary costs are charged to the Special research Fund (BOF)."]
     
     df.to_csv('data/csvs/data_projects_2024_5_FRIS.csv', index=False)
 
@@ -207,7 +219,7 @@ def extractPublicationsToCSVFris():
 
         root = tree.getroot()
 
-        publications = root.findall('.//fris:journalContribution', namespaces)
+        publications = root.findall('.//fris:journalContribution | .//fris:contributionToConference', namespaces)
 
         rows = []
         for publication in publications:
@@ -215,6 +227,7 @@ def extractPublicationsToCSVFris():
 
                 rows.append({   
                 'id': publication.attrib['uuid'],
+                'projId': getProjectIdsFris(publication),
                 'title': extractTextFromHtml(publication.find('./fris:title/fris:texts/fris:text[@locale="en"]',namespaces).text),
                 'abstract': extractTextFromHtml(publication.find('./fris:researchAbstract/fris:texts/fris:text[@locale="en"]',namespaces).text),
                 'participants': getParticipantsFris(publication),
@@ -246,11 +259,45 @@ def getSimilarTestData():
     df_merged.to_csv('data/csvs/data_publications_2024_5_FRIS_matched.csv', index=False)
 
 
+def mapVectorStore(vector_store):
+
+    embeddings = vector_store.get(include=['embeddings'])['embeddings']
+    text_labels = vector_store.get(include=['documents'])['documents']
+
+    reducer = umap.UMAP(n_components=2, random_state=42, metric='cosine')
+    reduced_embeddings = reducer.fit_transform(embeddings)
+
+
+    df = pd.DataFrame({
+        "x": reduced_embeddings[:, 0],
+        "y": reduced_embeddings[:, 1],
+        "label": text_labels
+    })
+    df["label"] = df["label"].astype(str)
+    fig = px.scatter(df, x="x", y="y", hover_data="label", title="UMAP Projection with Labels")
+    fig.update_traces(textposition="top center")
+    fig.show()
+
+# didnt work
+def createNormalized(vector_store_location):
+
+    vector_store = Chroma(persist_directory = vector_store_location)
+    data = vector_store.get(include=['documents','embeddings'])
+    vector_store = Chroma(persist_directory = vector_store_location + "_normalized")
+    data['embeddings'] = data['embeddings']/ np.linalg.norm(data['embeddings'],axis=1,keepdims=True)
+    for i in range(0,len(data['documents']),1000):
+        print(f"Processing batch {i}")
+        vector_store._collection.add(documents=data['documents'][i:i+1000], ids=data['ids'][i:i+1000],embeddings=data['embeddings'][i:i+1000])
+    
+    return vector_store
+
 #extractProjectsToCSV()
-#extractPublicationsToCSV()
+extractPublicationsToCSV()
 #extractProjectsToCSVFris()
 #extractPublicationsToCSVFris()
-getSimilarTestData()
+#getSimilarTestData()
 
-
+#createNormalized("data/vectorStores/data_projects_2024_5_vector_store_VoyageAI")
+#cleanUpProjectData()
+#mapVectorStore(Chroma(persist_directory = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI"))
 #cleanUpProjectData()

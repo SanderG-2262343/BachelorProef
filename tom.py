@@ -100,12 +100,13 @@ while pageNumber < totalRequests:
 
 
     if PROJECTS:
-        os.makedirs('./data_projects_2024_5_2', exist_ok=True)
-        with open('./data_projects_2024_5_2/page%s.xml' % pageNumber, 'w',encoding="utf-8") as f:
+        os.makedirs('./data_projects_2024_5', exist_ok=True)
+        with open('./data_projects_2024_5/page%s.xml' % pageNumber, 'w',encoding="utf-8") as f:
             clean_text = re.sub(r'[^\x20-\x7E\t\n\r]', '', soapResult.text)
             f.write(clean_text)
             f.close()
     else:
+        os.makedirs('./data_publications_2024_5', exist_ok=True)
         script_dir = os.path.dirname(os.path.abspath(__file__))
         destination_path = os.path.join(script_dir, "data_publications_2024_5/page%s.xml" % pageNumber)
         open(destination_path, 'wb').write(soapResult.content)

@@ -13,7 +13,7 @@ async def process_batches(project_data,vector_store, batch_size=100):
     print("Processing batches")
     texts = project_data['cfAbstr'].tolist()
     titles = project_data['cfTitle'].tolist()
-    combined = [title + " " + text for title, text in zip(titles, texts)]
+    combined = ["search_document: " + title + " " + text for title, text in zip(titles, texts)]
     doc_ids = project_data['cfProjId'].tolist()
 
     for i in range(0, len(combined), batch_size * 5):  # Process in groups of 5 batches
@@ -58,7 +58,7 @@ if __name__ == "__main__":
 
 
     # Drop rows with empty abstracts
-    project_data = project_data[project_data['cfAbstr'].str.len() >= 20] 
+    project_data = project_data[project_data['cfAbstr'].str.len() >= 50] 
     project_data.dropna(how='any', inplace=True) #one project with no title
 
 
@@ -66,9 +66,9 @@ if __name__ == "__main__":
     embeddings = OllamaEmbeddings(model="nomic-embed-text")
 
 
-    convertToFaiss()
+    #convertToFaiss()
 
-    vectorStoreLocation = "data/vectorStores/data_projects_2024_5_vector_store_TitleAbstract"
+    vectorStoreLocation = "data/vectorStores/data_projects_2024_5_vector_store_Instructions"
 
     if not os.path.exists(vectorStoreLocation):
 
