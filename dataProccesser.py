@@ -3,6 +3,10 @@ import xml.etree.ElementTree as ET
 import glob
 from bs4 import BeautifulSoup
 import re
+from bs4 import MarkupResemblesLocatorWarning
+import warnings
+
+warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
 
 from langchain_voyageai import VoyageAIEmbeddings
 from langchain_chroma import Chroma
@@ -10,6 +14,7 @@ import numpy as np
 import umap
 import matplotlib.pyplot as plt
 import plotly.express as px
+import multiprocessing
 
 
 namespaces = {'soap': 'http://schemas.xmlsoap.org/soap/envelope/',
@@ -152,15 +157,18 @@ def getDisciplinesFris(project, flemish = False):
 
     disciplinesList = []
     for discipline in disciplines:
-        if flemish:
-            disciplinesList.append(discipline.attrib['term'] +":" + discipline.find('./fris:description/fris:texts/fris:text[@locale="en"]',namespaces).text)
-        else:
-            disciplinesList.append(discipline.find('./fris:description/fris:texts/fris:text[@locale="en"]',namespaces).text)
+        try:
+            if flemish:
+                disciplinesList.append(discipline.attrib['term'] +":" + discipline.find('./fris:description/fris:texts/fris:text[@locale="en"]',namespaces).text)
+            else:
+                disciplinesList.append(discipline.find('./fris:description/fris:texts/fris:text[@locale="en"]',namespaces).text)
+        except:
+            pass
     return ";".join(disciplinesList)
 
 
 def getProjectIdsFris(publication):
-    projects = publication.findall('.//fris:researchOuputProjects/fris:researchOutputProject/fris:project',namespaces)
+    projects = publication.findall('./fris:researchOutputProjects/fris:researchOutputProject/fris:project',namespaces)
     projectIds = []
     for project in projects:
         projectIds.append(project.attrib['uuid'])
@@ -169,6 +177,7 @@ def getProjectIdsFris(publication):
     
 # Function to extract projects from FRIS to CSV with newer format
 def extractProjectsToCSVFris():
+    
     df = pd.DataFrame()
 
     for xml_file in glob.glob("data/rawXml/data_projects_2024_5_2/*.xml"):
@@ -205,26 +214,20 @@ def extractProjectsToCSVFris():
     df.to_csv('data/csvs/data_projects_2024_5_FRIS.csv', index=False)
 
 
-def extractPublicationsToCSVFris():
-    df = pd.DataFrame()
-
-    for xml_file in glob.glob("data/rawXml/data_publications_2024_5/*.xml"):
-        print(f"Processing file: {xml_file}")
-
+def getDfFromPublicationXml(xml_file):
         with open(xml_file, "r", encoding="utf-8", errors="replace") as f:
             xml_content = f.read() 
-
         xml_content = re.sub(r'[^\x09\x0A\x0D\x20-\x7E\u0080-\uFFFF]', '', xml_content)
         tree = ET.ElementTree(ET.fromstring(xml_content))
 
         root = tree.getroot()
 
-        publications = root.findall('.//fris:journalContribution | .//fris:contributionToConference', namespaces)
+        #publications = root.findall('.//fris:contributionToConference', namespaces)
+        publications = root.findall('.//fris:journalContribution', namespaces)
 
         rows = []
         for publication in publications:
-            try:               
-
+            try:
                 rows.append({   
                 'id': publication.attrib['uuid'],
                 'projId': getProjectIdsFris(publication),
@@ -236,9 +239,22 @@ def extractPublicationsToCSVFris():
                 })
             except AttributeError as e:
                 pass
-        temp_df = pd.DataFrame(rows)
-        df = pd.concat([df, temp_df], ignore_index=True)
 
+        temp_df = pd.DataFrame(rows)
+        return temp_df
+ 
+def extractPublicationsToCSVFris():
+    df = pd.DataFrame()
+
+    xml_files = glob.glob("data/rawXml/data_publications_2024_5/*.xml")
+        
+    with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+        results = pool.map(getDfFromPublicationXml, xml_files)
+
+
+    for temp_df in results:
+
+        df = pd.concat([df, temp_df], ignore_index=True)
 
     df = df[df['abstract'].str.len() >= 50] # remove projects with short abstracts
     df = df[df['title'].str.len() >= 5] # remove projects with no titles
@@ -291,12 +307,23 @@ def createNormalized(vector_store_location):
     
     return vector_store
 
-#extractProjectsToCSV()
-extractPublicationsToCSV()
-#extractProjectsToCSVFris()
-#extractPublicationsToCSVFris()
-#getSimilarTestData()
+def createTestSample():
+    df = pd.read_csv('data/csvs/data_publications_2024_5_FRIS_WithProjIdsOnly.csv')
+    df_proj = pd.read_csv('data/csvs/data_projects_2024_5_FRIS.csv')
+    df_sample = df.sample(100)
+    projIds = df_sample['projId'].str.split(',').explode().unique().tolist()
+    df_proj = df_proj[df_proj['projId'].isin(projIds)]
+    df_sample.to_csv('data/csvs/data_publications_2024_5_TestSample.csv', index=False)
+    df_proj.to_csv('data/csvs/data_projects_2024_5_TestSample.csv', index=False)
 
+#extractProjectsToCSV()
+#extractPublicationsToCSV()
+#extractProjectsToCSVFris()
+if __name__ == "__main__":
+    #extractPublicationsToCSVFris()
+#getSimilarTestData()
+    createTestSample()
+    
 #createNormalized("data/vectorStores/data_projects_2024_5_vector_store_VoyageAI")
 #cleanUpProjectData()
 #mapVectorStore(Chroma(persist_directory = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI"))

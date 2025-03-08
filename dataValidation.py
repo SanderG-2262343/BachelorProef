@@ -46,61 +46,52 @@ def mergeEmbeddingsVectorStore():
 #allow_dangerous_deserialization=True since we made in EmbeddingNomicLocal.py
 #faiss_store = FAISS.load_local("data_projects_2024_5_vector_store_TitleAbstract_faiss",embeddings=embeddings,allow_dangerous_deserialization=True)
 
-def runTestsVoyageAi(texts,titles,projIds):
+
+def runTestsVoyageAi(abstracts,titles,projIds,vector_store_directory,embeddingsSave,zipfunction  = None):
     embeddingsVoyage = VoyageAIEmbeddings(model="voyage-3-large",api_key=os.environ['VOYAGE_API_KEY'])
-    vector_store = Chroma(embedding_function=embeddingsVoyage,persist_directory = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI")
+    vector_store = Chroma(embedding_function=embeddingsVoyage,persist_directory = vector_store_directory)
     #participants = df['participants'].tolist()
-    for i in [1,2,3,5]:
-        successfulmatch = testEmbeddingVoyageAI(texts,titles,projIds,vector_store,i)
-        print(f"{successfulmatch * 100 / len(texts)}%")
-        #Success Rate of VoyageAI with Top {i}: 
+    
 
-    for i in range(10, 110, 10):
-        successfulmatch = testEmbeddingVoyageAI(texts,titles,projIds,vector_store,i)
-        print(f"{successfulmatch * 100 / len(texts)}%")
+    for i in [1,2,3,5] + list(range(10, 110, 10)):
+        if zipfunction == None:
+            successfulmatch = testEmbeddingVoyageAI(abstracts,titles,projIds,vector_store,i, embeddingsSave=embeddingsSave)
+        else:
+            successfulmatch = testEmbeddingVoyageAI(abstracts,titles,projIds,vector_store,i, embeddingsSave=embeddingsSave,zipfunction=zipfunction)
+        print(f"Success Rate of VoyageAI with Top {i}: {successfulmatch * 100 / len(abstracts)}%")
 
-def runTestsNomic(texts,titles,projIds):
-    vector_store = Chroma(embedding_function=NomicEmbedding,persist_directory = "data/vectorStores/data_projects_2024_5_vector_store_TitleAbstract")
-    for i in [1,2,3,5]:
-        successfulmatch = testEmbeddingNomic(texts,titles,projIds,vector_store,i)
-        print(f"Success Rate of Nomic with Top {i}: {successfulmatch * 100 / len(texts)}%")
+def runTestsNomic(abstracts,titles,projIds,vector_store_directory,embeddingsSave,zipfunction  = None):
+    vector_store = Chroma(embedding_function=NomicEmbedding,persist_directory = vector_store_directory)
+    for i in [1,2,3,5] + list(range(10, 110, 10)):
+        if zipfunction == None:
+            successfulmatch = testEmbeddingNomic(abstracts,titles,projIds,vector_store,i,embeddingsSave)
+        else:
+            successfulmatch = testEmbeddingNomic(abstracts,titles,projIds,vector_store,i,embeddingsSave,zipfunction)
+        print(f"Success Rate of Nomic with Top {i}: {successfulmatch * 100 / len(abstracts)}%")
 
-    for i in range(10, 110, 10):
-        successfulmatch = testEmbeddingNomic(texts,titles,projIds,vector_store,i)
-        print(f"Success Rate of Nomic with Top {i}: {successfulmatch * 100 / len(texts)}%")
+def runTestsTop2Vec(abstracts,titles,projIds,top2vecModelFilename):
+    top2vecModel = top2vec.top2vec.load(top2vecModelFilename)
+    for i in [1,2,3,5] + list(range(10, 110, 10)):
+        successfulmatch = testTop2VecModel(abstracts,titles,projIds,top2vecModel,i)
+        print(f"Success Rate of Top2Vec with Top {i}: {successfulmatch * 100 / len(abstracts)}%")
 
-def runTestsTop2Vec(texts,titles,projIds):
-    for i in [1,2,3,5]:
-        successfulmatch = testTop2VecModel(texts,titles,projIds,i)
-        print(f"Success Rate of Top2Vec with Top {i}: {successfulmatch * 100 / len(texts)}%")
-
-    for i in range(10, 110, 10):
-        successfulmatch = testTop2VecModel(texts,titles,projIds,i)
-        print(f"Success Rate of Top2Vec with Top {i}: {successfulmatch * 100 / len(texts)}%")
-
-def testEmbeddingVoyageAI(texts,titles,projIds,vector_store,top_k = 2,participants=None):
+def testEmbeddingVoyageAI(abstracts,titles,projIds,vector_store,top_k = 2,embeddingsSave = "placeholder" ,zipfunction = lambda titles, abstracts: ["Instruct: Compare this publication with a project \n Query:" + title + " " + abstract for title, abstract in zip(titles, abstracts)]):
     successfulmatch = 0
     embeddingsVoyage = VoyageAIEmbeddings(model="voyage-3-large",api_key=os.environ['VOYAGE_API_KEY'])
 
     voyageaiEmbed = voyageai.Client(api_key=os.environ['VOYAGE_API_KEY'])
 
     #store embeddings locally for multiple runs
-    combined = ["Instruct: Compare this publication with a project \n Text:" + title + " " + text for title, text in zip(titles, texts)]
+    combined = zipfunction(titles, abstracts)
     #combined = [title + " " + text for title, text in zip(titles, texts)]
 
-    embeddingsSave = "embeddingsVoyageQueryInstruct.csv"
-    embeddingsSave = "data/embeddingSaves/" + embeddingsSave
+    
 
     if not os.path.exists(embeddingsSave):
         embeddingsVoyage.batch_size = 128
         #combined = [f"Instruct: Compare this publication with a project \n Query: Title: {title} Participants: {participants} Abstract: {text}" for title, text,participants in zip(titles, texts,participants)]
         #embeddings = embeddingsVoyage.embed_query(combined)
-
-        for i in range(0, len(combined), 128):
-            if i == 0:
-                embeddings = voyageaiEmbed.embed(combined[i:i+128],model="voyage-3-large",input_type="query").embeddings
-            else:
-                embeddings += voyageaiEmbed.embed(combined[i:i+128],model="voyage-3-large",input_type="query").embeddings
+        embeddings = embeddingsVoyage.embed_documents(combined)
         pd.DataFrame(embeddings).to_csv(embeddingsSave,index=False)
     else:
         embeddings = pd.read_csv(embeddingsSave).values.tolist()
@@ -125,7 +116,7 @@ def testEmbeddingVoyageAI(texts,titles,projIds,vector_store,top_k = 2,participan
     embeddingsCombined = embeddingsCombined / np.linalg.norm(embeddingsCombined,axis=1, keepdims=True)
     '''
     #reranker = voyageai.Client()
-    for i in range(0, len(texts)):
+    for i in range(0, len(abstracts)):
         #if i % 100 == 0:
             #print(f"Processing publication {i}")
 
@@ -156,15 +147,12 @@ def testEmbeddingVoyageAI(texts,titles,projIds,vector_store,top_k = 2,participan
                 break
     return successfulmatch
 
-def testEmbeddingNomic(texts,titles,projIds,vector_store,top_k = 2):
+def testEmbeddingNomic(texts,abstracts,projIds,vector_store,top_k = 2,embeddingsSave = "placeholder", zipfunction = lambda titles, abstracts: [title + " " + abstract for title, abstract in zip(titles, abstracts)]):
     successfulmatch = 0
 
     #store embeddings locally for multiple runs
 
-    embeddingsSave = "embeddingsNomic.csv"
-    embeddingsSave = "data/embeddingSaves" + embeddingsSave
-
-    combined = [title + " " + text for title, text in zip(titles, texts)]
+    combined = zipfunction(titles, abstracts)
     if not os.path.exists(embeddingsSave):
         embeddings = NomicEmbedding.embed_documents(combined)
         pd.DataFrame(embeddings).to_csv(embeddingsSave,index=False)
@@ -191,13 +179,12 @@ def testEmbeddingNomic(texts,titles,projIds,vector_store,top_k = 2):
     
 
 
-def testTop2VecModel(texts,titles,projIds,top_k = 2):
+def testTop2VecModel(texts,titles,projIds,top2vecModel,top_k = 2,):
     successfulmatch = 0
-    model = top2vec.top2vec.load("data/models/top2vec_model_deep-learn")
     for i in range(0, len(texts)):
         #if i % 100 == 0:
             #print(f"Processing publication {i}")
-        results = model.query_documents((titles[i] + " " + texts[i]),num_docs=top_k)
+        results = top2vecModel.query_documents((titles[i] + " " + texts[i]),num_docs=top_k)
 
         #results = vector_store.similarity_search_by_vector(embedding, 100)
         #results = vector_store.search(titles[i] + texts[i],'mmr',k = 5)
@@ -207,7 +194,7 @@ def testTop2VecModel(texts,titles,projIds,top_k = 2):
                 break
     return successfulmatch
     
-texts = df['cfAbstr'].tolist()
+abstracts = df['cfAbstr'].tolist()
 titles = df['cfTitle'].tolist()
 projIds = df['cfProjId'].tolist()
 #successfulmatch = testEmbeddingNomic(texts,titles,projIds,Chroma(embedding_function=embeddings,persist_directory = "data_projects_2024_5_vector_store"))
@@ -220,8 +207,21 @@ projIds = df['cfProjId'].tolist()
 #print(f"Success Rate of Top2Vec: {successfulmatch2 * 100 / len(texts)}%")
 
 
+def runAllTests(vector_store_directoryVoyage, embeddingSaveDirectoryVoyage, 
+                vector_store_directoryNomic, embeddingsSaveDirectoryNomic, 
+                top2vecModelFilename, zipfunctions = None):
+
+    if zipfunctions is not None and len(zipfunctions) == 2:
+        runTestsVoyageAi(abstracts, titles, projIds, vector_store_directoryVoyage, embeddingSaveDirectoryVoyage, zipfunctions=zipfunctions[0])
+        runTestsNomic(abstracts, titles, projIds, vector_store_directoryNomic, embeddingsSaveDirectoryNomic, zipfunctions=zipfunctions[1])
+    else:
+        runTestsVoyageAi(abstracts, titles, projIds, vector_store_directoryVoyage, embeddingSaveDirectoryVoyage)
+        runTestsNomic(abstracts, titles, projIds, vector_store_directoryNomic, embeddingsSaveDirectoryNomic)
+
+    runTestsTop2Vec(abstracts, titles, projIds, top2vecModelFilename)
+
 #mergeEmbeddingsVectorStore()
-runTestsVoyageAi(texts,titles,projIds)
-#runTestsNomic(texts,titles,projIds)
+#runTestsVoyageAi(abstracts,titles,projIds, "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI","data/embeddingSaves/embeddingsVoyage.csv")
+#runTestsNomic(texts,titles,projIds, "data/vectorStores/data_projects_2024_5_vector_store_TitleAbstract","data/embeddingSaves/embeddingsNomic.csv")
 #runTestsTop2Vec(texts,titles,projIds)
 

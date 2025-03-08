@@ -70,6 +70,7 @@ if PROJECTS:
     soapResult = client.service.getProjects(**xml)
 else:
     soapResult = client.service.getResearchOutput(**xml)
+    print(soapResult.content)
 myroot = etree.fromstring(soapResult.content, parser=parser)
 
 
