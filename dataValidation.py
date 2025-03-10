@@ -13,13 +13,6 @@ import voyageai.object
 
 load_dotenv()
 
-df = pd.read_csv('data/csvs/data_publications_2024_5_FRIS_matched.csv')
-NomicEmbedding = OllamaEmbeddings(model="nomic-embed-text")
-
-
-
-
-df.dropna(how='any', inplace=True,subset=['cfProjId'])
 
 
 # Merge the title embedding and abstract embedding into one combined embedding using (Concatenation, Sum, Average, etc.) depending on what currently testing
@@ -61,6 +54,7 @@ def runTestsVoyageAi(abstracts,titles,projIds,vector_store_directory,embeddingsS
         print(f"Success Rate of VoyageAI with Top {i}: {successfulmatch * 100 / len(abstracts)}%")
 
 def runTestsNomic(abstracts,titles,projIds,vector_store_directory,embeddingsSave,zipfunction  = None):
+    NomicEmbedding = OllamaEmbeddings(model="nomic-embed-text")
     vector_store = Chroma(embedding_function=NomicEmbedding,persist_directory = vector_store_directory)
     for i in [1,2,3,5] + list(range(10, 110, 10)):
         if zipfunction == None:
@@ -75,11 +69,12 @@ def runTestsTop2Vec(abstracts,titles,projIds,top2vecModelFilename):
         successfulmatch = testTop2VecModel(abstracts,titles,projIds,top2vecModel,i)
         print(f"Success Rate of Top2Vec with Top {i}: {successfulmatch * 100 / len(abstracts)}%")
 
-def testEmbeddingVoyageAI(abstracts,titles,projIds,vector_store,top_k = 2,embeddingsSave = "placeholder" ,zipfunction = lambda titles, abstracts: ["Instruct: Compare this publication with a project \n Query:" + title + " " + abstract for title, abstract in zip(titles, abstracts)]):
+def testEmbeddingVoyageAI(abstracts,titles,projIds,vector_store,top_k = 2,embeddingsSave = "placeholder" ,
+                          zipfunction = lambda titles, abstracts: ["Instruct: Compare this publication with a project \n Query:" + title + " " + abstract for title, abstract in zip(titles, abstracts)]):
     successfulmatch = 0
     embeddingsVoyage = VoyageAIEmbeddings(model="voyage-3-large",api_key=os.environ['VOYAGE_API_KEY'])
 
-    voyageaiEmbed = voyageai.Client(api_key=os.environ['VOYAGE_API_KEY'])
+    #voyageaiEmbed = voyageai.Client(api_key=os.environ['VOYAGE_API_KEY'])
 
     #store embeddings locally for multiple runs
     combined = zipfunction(titles, abstracts)
@@ -139,19 +134,21 @@ def testEmbeddingVoyageAI(abstracts,titles,projIds,vector_store,top_k = 2,embedd
                 break
         time.sleep(1)
         """        
-
+        oldsuccessmatch = successfulmatch
         for result in results:
             #id = result.metadata['doc_id']
             if result.id in projIds[i]:
                 successfulmatch += 1
                 break
+        if top_k == 100 and successfulmatch == oldsuccessmatch:
+            print(projIds[i])
     return successfulmatch
 
-def testEmbeddingNomic(texts,abstracts,projIds,vector_store,top_k = 2,embeddingsSave = "placeholder", zipfunction = lambda titles, abstracts: [title + " " + abstract for title, abstract in zip(titles, abstracts)]):
+def testEmbeddingNomic(abstracts,titles,projIds,vector_store,top_k = 2,embeddingsSave = "placeholder", zipfunction = lambda titles, abstracts: [title + " " + abstract for title, abstract in zip(titles, abstracts)]):
     successfulmatch = 0
+    NomicEmbedding = OllamaEmbeddings(model="nomic-embed-text")
 
     #store embeddings locally for multiple runs
-
     combined = zipfunction(titles, abstracts)
     if not os.path.exists(embeddingsSave):
         embeddings = NomicEmbedding.embed_documents(combined)
@@ -161,7 +158,7 @@ def testEmbeddingNomic(texts,abstracts,projIds,vector_store,top_k = 2,embeddings
         embeddings = pd.read_csv(embeddingsSave).values.tolist()
 
 
-    for i in range(0, len(texts)):
+    for i in range(0, len(abstracts)):
         #if i % 100 == 0:
             #print(f"Processing publication {i}")
 
@@ -170,11 +167,14 @@ def testEmbeddingNomic(texts,abstracts,projIds,vector_store,top_k = 2,embeddings
         
         #results = vector_store.similarity_search(titles[i] + texts[i], 2)
         #results = vector_store.search(titles[i] + texts[i],'mmr',k = 5)
+        oldsuccessmatch = successfulmatch
         for result in results:
             #id = result.metadata['doc_id']
             if result.id in projIds[i]:
                 successfulmatch += 1
                 break
+        if top_k == 100 and successfulmatch == oldsuccessmatch:
+            print(projIds[i])
     return successfulmatch
     
 
@@ -188,15 +188,16 @@ def testTop2VecModel(texts,titles,projIds,top2vecModel,top_k = 2,):
 
         #results = vector_store.similarity_search_by_vector(embedding, 100)
         #results = vector_store.search(titles[i] + texts[i],'mmr',k = 5)
+        oldsuccessmatch = successfulmatch
         for id in results[2]:
             if id in projIds[i]:
                 successfulmatch += 1
                 break
+        if top_k == 100 and successfulmatch == oldsuccessmatch:
+            print(projIds[i])
     return successfulmatch
     
-abstracts = df['cfAbstr'].tolist()
-titles = df['cfTitle'].tolist()
-projIds = df['cfProjId'].tolist()
+
 #successfulmatch = testEmbeddingNomic(texts,titles,projIds,Chroma(embedding_function=embeddings,persist_directory = "data_projects_2024_5_vector_store"))
 #successfulmatch = testEmbeddingNomic(texts,titles,projIds,faiss_store)
 #successfulmatch = testEmbeddingNomic(texts,titles,projIds,Chroma(embedding_function=NomicEmbedding,persist_directory = "data_projects_2024_5_vector_store"),2)
@@ -209,7 +210,11 @@ projIds = df['cfProjId'].tolist()
 
 def runAllTests(vector_store_directoryVoyage, embeddingSaveDirectoryVoyage, 
                 vector_store_directoryNomic, embeddingsSaveDirectoryNomic, 
-                top2vecModelFilename, zipfunctions = None):
+                top2vecModelFilename, publicationDataFileLocation, zipfunctions = None):
+    df = pd.read_csv(publicationDataFileLocation)
+    abstracts = df['abstract'].tolist()
+    titles = df['title'].tolist()
+    projIds = df['projId'].tolist()
 
     if zipfunctions is not None and len(zipfunctions) == 2:
         runTestsVoyageAi(abstracts, titles, projIds, vector_store_directoryVoyage, embeddingSaveDirectoryVoyage, zipfunctions=zipfunctions[0])

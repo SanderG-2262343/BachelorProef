@@ -192,7 +192,6 @@ def extractProjectsToCSVFris():
         rows = []
         for project in projects:
             try:               
-
                 rows.append({   
                 'projId': project.attrib['uuid'],
                 'title': extractTextFromHtml(project.find('./fris:name/fris:texts/fris:text[@locale="en"]',namespaces).text),
@@ -207,11 +206,11 @@ def extractProjectsToCSVFris():
         df = pd.concat([df, temp_df], ignore_index=True)
         
 
-    df = df[df['abstract'].str.len() >= 200] # remove projects with short abstracts
+    df = df[df['abstract'].str.len() >= 150] # remove projects with short abstracts
     df = df[df['title'].str.len() >= 5] # remove projects with no titles
 
     
-    df.to_csv('data/csvs/data_projects_2024_5_FRIS.csv', index=False)
+    df.to_csv('data/csvs/data_projects_2024_5_FRIS_2.csv', index=False)
 
 
 def getDfFromPublicationXml(xml_file):
@@ -309,8 +308,9 @@ def createNormalized(vector_store_location):
 
 def createTestSample():
     df = pd.read_csv('data/csvs/data_publications_2024_5_FRIS_WithProjIdsOnly.csv')
-    df_proj = pd.read_csv('data/csvs/data_projects_2024_5_FRIS.csv')
-    df_sample = df.sample(100)
+    df_proj = pd.read_csv('data/csvs/data_projects_2024_5_FRIS_2.csv')
+    #df_sample = df.sample(100)
+    df_sample = pd.read_csv('data/csvs/data_publications_2024_5_TestSample.csv')
     projIds = df_sample['projId'].str.split(',').explode().unique().tolist()
     df_proj = df_proj[df_proj['projId'].isin(projIds)]
     df_sample.to_csv('data/csvs/data_publications_2024_5_TestSample.csv', index=False)
@@ -321,7 +321,9 @@ def createTestSample():
 #extractProjectsToCSVFris()
 if __name__ == "__main__":
     #extractPublicationsToCSVFris()
+    #extractProjectsToCSVFris()
 #getSimilarTestData()
+    #mapVectorStore(Chroma(persist_directory = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_TestSample"))
     createTestSample()
     
 #createNormalized("data/vectorStores/data_projects_2024_5_vector_store_VoyageAI")

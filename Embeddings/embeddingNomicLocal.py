@@ -8,16 +8,45 @@ import os
 
 
 
+def nomicEmbedding(StorageDir,Current_Dataset,zipfunction = None):
+    # Load the data assuming the data is already preprocessed
+    project_data = pd.read_csv(Current_Dataset)
 
-async def process_batches(project_data,vector_store, batch_size=100):
-    print("Processing batches")
-    texts = project_data['cfAbstr'].tolist()
-    titles = project_data['cfTitle'].tolist()
-    combined = ["search_document: " + title + " " + text for title, text in zip(titles, texts)]
-    doc_ids = project_data['cfProjId'].tolist()
+
+    # Drop rows with empty abstracts
+    #roject_data = project_data[project_data['cfAbstr'].str.len() >= 50] 
+    #project_data.dropna(how='any', inplace=True) #one project with no title
+
+    # Initialize the OllamaEmbeddings object assume the model already pulled
+    embeddings = OllamaEmbeddings(model="nomic-embed-text")
+    #convertToFaiss()
+
+
+    if not os.path.exists(StorageDir):
+        print("Processing Nomic Embeddings")
+        vector_store = Chroma(embedding_function=embeddings,persist_directory = StorageDir)
+
+        if zipfunction is not None:        
+            asyncio.run(process_batches(project_data,vector_store,100,zipfunction))
+        else:
+            asyncio.run(process_batches(project_data,vector_store,100))
+        print("All tasks completed")
+
+    else:
+        print("Data already processed")
+
+
+async def process_batches(project_data,vector_store, batch_size=100,
+                        zipfunction = lambda titles,abstracts: [title + " " + abstract for title, abstract in zip(titles, abstracts)]):
+    #print("Processing batches")
+    abstracts = project_data['abstract'].tolist()
+    titles = project_data['title'].tolist()
+
+    combined =zipfunction(titles,abstracts)
+    doc_ids = project_data['projId'].tolist()
 
     for i in range(0, len(combined), batch_size * 5):  # Process in groups of 5 batches
-        print(f"Processing batch {i // batch_size} to {i // batch_size + 5}")
+        #print(f"Processing batch {i // batch_size} to {i // batch_size + 5}")
         sub_tasks = [
             asyncio.create_task(vector_store.aadd_texts(
                 texts=combined[j:j+batch_size], ids=doc_ids[j:j+batch_size]
@@ -53,33 +82,7 @@ def convertToFaiss():
 
 if __name__ == "__main__":
 
-    # Load the data assuming the data is already preprocessed
-    project_data = pd.read_csv('data/csvs/data_projects_2024_5.csv')
-
-
-    # Drop rows with empty abstracts
-    project_data = project_data[project_data['cfAbstr'].str.len() >= 50] 
-    project_data.dropna(how='any', inplace=True) #one project with no title
-
-
-    # Initialize the OllamaEmbeddings object assume the model already pulled
-    embeddings = OllamaEmbeddings(model="nomic-embed-text")
-
-
-    #convertToFaiss()
-
-    vectorStoreLocation = "data/vectorStores/data_projects_2024_5_vector_store_Instructions"
-
-    if not os.path.exists(vectorStoreLocation):
-
-        vector_store = Chroma(embedding_function=embeddings,persist_directory = vectorStoreLocation)
-
-        asyncio.run(process_batches(project_data,vector_store,100))
-        print("All tasks completed")
-
-    else:
-        vector_store = Chroma(embedding_function=embeddings,persist_directory = vectorStoreLocation)
-
+    nomicEmbedding("data/vectorStores/data_projects_2024_5_vector_store_Nomic_TitleAbstract","data/csvs/data_projects_2024_5.csv")
 
 
 
