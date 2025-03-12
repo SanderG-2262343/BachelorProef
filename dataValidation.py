@@ -2,6 +2,9 @@ import pandas as pd
 from langchain_ollama import OllamaEmbeddings
 from langchain_chroma import Chroma
 from langchain_voyageai import VoyageAIEmbeddings
+from sentence_transformers import CrossEncoder
+from google import genai
+from google.genai import types
 import voyageai
 #from langchain_community.vectorstores import FAISS
 import top2vec.top2vec
@@ -10,6 +13,7 @@ import shutil
 from dotenv import load_dotenv
 import numpy as np
 import voyageai.object
+import time
 
 load_dotenv()
 
@@ -45,7 +49,6 @@ def runTestsVoyageAi(abstracts,titles,projIds,vector_store_directory,embeddingsS
     vector_store = Chroma(embedding_function=embeddingsVoyage,persist_directory = vector_store_directory)
     #participants = df['participants'].tolist()
     
-
     for i in [1,2,3,5] + list(range(10, 110, 10)):
         if zipfunction == None:
             successfulmatch = testEmbeddingVoyageAI(abstracts,titles,projIds,vector_store,i, embeddingsSave=embeddingsSave)
@@ -53,8 +56,18 @@ def runTestsVoyageAi(abstracts,titles,projIds,vector_store_directory,embeddingsS
             successfulmatch = testEmbeddingVoyageAI(abstracts,titles,projIds,vector_store,i, embeddingsSave=embeddingsSave,zipfunction=zipfunction)
         print(f"Success Rate of VoyageAI with Top {i}: {successfulmatch * 100 / len(abstracts)}%")
 
+def runTestGemini(abstracts,titles,projIds,vector_store_directory,embeddingsSave,zipfunction  = None):
+    vector_store = Chroma(persist_directory = vector_store_directory)
+    for i in [1,2,3,5] + list(range(10, 110, 10)):
+        if zipfunction == None:
+            successfulmatch = testEmbeddingGemini(abstracts,titles,projIds,vector_store,i,embeddingsSave)
+        else:
+            successfulmatch = testEmbeddingGemini(abstracts,titles,projIds,vector_store,i,embeddingsSave,zipfunction)
+        print(f"Success Rate of Gemini with Top {i}: {successfulmatch * 100 / len(abstracts)}%")
+
+
 def runTestsNomic(abstracts,titles,projIds,vector_store_directory,embeddingsSave,zipfunction  = None):
-    NomicEmbedding = OllamaEmbeddings(model="nomic-embed-text")
+    NomicEmbedding = OllamaEmbeddings(model="mxbai-embed-large")
     vector_store = Chroma(embedding_function=NomicEmbedding,persist_directory = vector_store_directory)
     for i in [1,2,3,5] + list(range(10, 110, 10)):
         if zipfunction == None:
@@ -63,9 +76,14 @@ def runTestsNomic(abstracts,titles,projIds,vector_store_directory,embeddingsSave
             successfulmatch = testEmbeddingNomic(abstracts,titles,projIds,vector_store,i,embeddingsSave,zipfunction)
         print(f"Success Rate of Nomic with Top {i}: {successfulmatch * 100 / len(abstracts)}%")
 
-def runTestsTop2Vec(abstracts,titles,projIds,top2vecModelFilename):
+
+def runTestsTop2Vec(abstracts,titles,projIds,top2vecModelFilename,zipfunction  = None):
     top2vecModel = top2vec.top2vec.load(top2vecModelFilename)
     for i in [1,2,3,5] + list(range(10, 110, 10)):
+        if zipfunction == None:
+            successfulmatch = testTop2VecModel(abstracts,titles,projIds,top2vecModel,i)
+        else:
+            successfulmatch = testTop2VecModel(abstracts,titles,projIds,top2vecModel,i,zipfunction)
         successfulmatch = testTop2VecModel(abstracts,titles,projIds,top2vecModel,i)
         print(f"Success Rate of Top2Vec with Top {i}: {successfulmatch * 100 / len(abstracts)}%")
 
@@ -110,7 +128,8 @@ def testEmbeddingVoyageAI(abstracts,titles,projIds,vector_store,top_k = 2,embedd
     embeddingsCombined = [np.add(0.2* a, 0.8 * b) for a, b in zip(embeddings, embeddings2)]
     embeddingsCombined = embeddingsCombined / np.linalg.norm(embeddingsCombined,axis=1, keepdims=True)
     '''
-    #reranker = voyageai.Client()
+    #reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+    successfulmatch2 = 0
     for i in range(0, len(abstracts)):
         #if i % 100 == 0:
             #print(f"Processing publication {i}")
@@ -121,29 +140,57 @@ def testEmbeddingVoyageAI(abstracts,titles,projIds,vector_store,top_k = 2,embedd
         #results = vector_store.search(titles[i] + texts[i],'mmr',k = 5)
 
         #Code for reranker
-        """
+        '''
         documents = []
         for result in results:
             documents.append(result.page_content)
-        
-        reranking = reranker.rerank(combined[i],documents,model="rerank-2",top_k=5)
-
-        for r in reranking.results:
-            if results[r.index].id in projIds[i]:
-                successfulmatch += 1
+            
+           
+            
+        reranking =  reranker.rank(combined[i],documents,top_k=3,return_documents=True)
+        for r in reranking:
+            if results[r["corpus_id"]].id in projIds[i]:
+                successfulmatch2 += 1
                 break
         time.sleep(1)
-        """        
+
+
+        ''' 
         oldsuccessmatch = successfulmatch
         for result in results:
             #id = result.metadata['doc_id']
             if result.id in projIds[i]:
                 successfulmatch += 1
                 break
-        if top_k == 100 and successfulmatch == oldsuccessmatch:
-            print(projIds[i])
+        #if top_k == 100 and successfulmatch == oldsuccessmatch:
+        #    print(projIds[i])'
+        
+    
+    #return successfulmatch2
     return successfulmatch
 
+
+def testEmbeddingGemini(abstracts,titles,projIds,vector_store,top_k = 2,embeddingsSave = "placeholder", zipfunction = lambda titles, abstracts: [title + " " + abstract for title, abstract in zip(titles, abstracts)]):
+    successfulmatch = 0
+    embeddingsGemini = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    combined = zipfunction(titles, abstracts)
+    if not os.path.exists(embeddingsSave):
+        result = embeddingsGemini.models.embed_content(model="text-embedding-004",contents=combined,config=types.EmbedContentConfig(task_type="RETREIVAL_QUERY"))
+        embeddings = [embedding.values for embedding in result.embeddings]
+        pd.DataFrame(embeddings).to_csv(embeddingsSave,index=False)
+    else:
+        embeddings = pd.read_csv(embeddingsSave).values.tolist()
+    for i in range(0, len(abstracts)):
+        results = vector_store.similarity_search_by_vector(embeddings[i], top_k)
+
+        for result in results:
+            #id = result.metadata['doc_id']
+            if result.id in projIds[i]:
+                successfulmatch += 1
+                break
+    return successfulmatch
+
+    
 def testEmbeddingNomic(abstracts,titles,projIds,vector_store,top_k = 2,embeddingsSave = "placeholder", zipfunction = lambda titles, abstracts: [title + " " + abstract for title, abstract in zip(titles, abstracts)]):
     successfulmatch = 0
     NomicEmbedding = OllamaEmbeddings(model="nomic-embed-text")
@@ -173,18 +220,20 @@ def testEmbeddingNomic(abstracts,titles,projIds,vector_store,top_k = 2,embedding
             if result.id in projIds[i]:
                 successfulmatch += 1
                 break
-        if top_k == 100 and successfulmatch == oldsuccessmatch:
-            print(projIds[i])
+        #if top_k == 100 and successfulmatch == oldsuccessmatch:
+        #    print(projIds[i])
     return successfulmatch
     
 
 
-def testTop2VecModel(texts,titles,projIds,top2vecModel,top_k = 2,):
+def testTop2VecModel(texts,titles,projIds,top2vecModel,top_k = 2,zipfunction = lambda titles, abstracts: [title + " " + abstract for title, abstract in zip(titles, abstracts)]):
     successfulmatch = 0
-    for i in range(0, len(texts)):
+    combined = zipfunction(titles, texts)
+    for i in range(0, len(combined)):
         #if i % 100 == 0:
             #print(f"Processing publication {i}")
-        results = top2vecModel.query_documents((titles[i] + " " + texts[i]),num_docs=top_k)
+        
+        results = top2vecModel.query_documents(combined[i],num_docs=top_k)
 
         #results = vector_store.similarity_search_by_vector(embedding, 100)
         #results = vector_store.search(titles[i] + texts[i],'mmr',k = 5)
@@ -193,8 +242,8 @@ def testTop2VecModel(texts,titles,projIds,top2vecModel,top_k = 2,):
             if id in projIds[i]:
                 successfulmatch += 1
                 break
-        if top_k == 100 and successfulmatch == oldsuccessmatch:
-            print(projIds[i])
+        #if top_k == 100 and successfulmatch == oldsuccessmatch:
+        #    print(projIds[i])
     return successfulmatch
     
 
@@ -216,17 +265,31 @@ def runAllTests(vector_store_directoryVoyage, embeddingSaveDirectoryVoyage,
     titles = df['title'].tolist()
     projIds = df['projId'].tolist()
 
-    if zipfunctions is not None and len(zipfunctions) == 2:
-        runTestsVoyageAi(abstracts, titles, projIds, vector_store_directoryVoyage, embeddingSaveDirectoryVoyage, zipfunctions=zipfunctions[0])
-        runTestsNomic(abstracts, titles, projIds, vector_store_directoryNomic, embeddingsSaveDirectoryNomic, zipfunctions=zipfunctions[1])
+    if zipfunctions is not None and len(zipfunctions) == 3:
+        runTestsVoyageAi(abstracts, titles, projIds, vector_store_directoryVoyage, embeddingSaveDirectoryVoyage, zipfunction=zipfunctions[0])
+        runTestsNomic(abstracts, titles, projIds, vector_store_directoryNomic, embeddingsSaveDirectoryNomic, zipfunction=zipfunctions[1])
+        runTestsTop2Vec(abstracts, titles, projIds, top2vecModelFilename,zipfunction=zipfunctions[2])
     else:
         runTestsVoyageAi(abstracts, titles, projIds, vector_store_directoryVoyage, embeddingSaveDirectoryVoyage)
         runTestsNomic(abstracts, titles, projIds, vector_store_directoryNomic, embeddingsSaveDirectoryNomic)
+        runTestsTop2Vec(abstracts, titles, projIds, top2vecModelFilename)
 
-    runTestsTop2Vec(abstracts, titles, projIds, top2vecModelFilename)
+    
+    
 
 #mergeEmbeddingsVectorStore()
 #runTestsVoyageAi(abstracts,titles,projIds, "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI","data/embeddingSaves/embeddingsVoyage.csv")
 #runTestsNomic(texts,titles,projIds, "data/vectorStores/data_projects_2024_5_vector_store_TitleAbstract","data/embeddingSaves/embeddingsNomic.csv")
 #runTestsTop2Vec(texts,titles,projIds)
 
+"""
+df = pd.read_csv("data/csvs/data_publications_2024_5_TestSample.csv")
+abstracts = df['abstract'].tolist()
+titles = df['title'].tolist()
+projIds = df['projId'].tolist()
+runTestGemini(abstracts,titles,projIds,"data/vectorStores/data_projects_2024_5_vector_store_Gemini_TestSample","data/embeddingSaves/embeddingsGemini.csv")
+"""
+#print(time.ctime())
+#sucessrate = testEmbeddingVoyageAI(abstracts,titles,projIds,Chroma(embedding_function=VoyageAIEmbeddings(model="voyage-3-large",api_key=os.environ['VOYAGE_API_KEY']),persist_directory = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_TestSample"),3,embeddingsSave="data/embeddingSaves/embeddingsVoyage_TestSample.csv")
+#print(time.ctime())
+#print(f"Success Rate of VoyageAI with Top 30: {sucessrate * 100 / len(abstracts)}%")

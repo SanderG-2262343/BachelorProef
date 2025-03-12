@@ -309,12 +309,14 @@ def createNormalized(vector_store_location):
 def createTestSample():
     df = pd.read_csv('data/csvs/data_publications_2024_5_FRIS_WithProjIdsOnly.csv')
     df_proj = pd.read_csv('data/csvs/data_projects_2024_5_FRIS_2.csv')
+    df_proj = df_proj[df_proj['abstract'].str.len() > 200]
     #df_sample = df.sample(100)
-    df_sample = pd.read_csv('data/csvs/data_publications_2024_5_TestSample.csv')
-    projIds = df_sample['projId'].str.split(',').explode().unique().tolist()
+    #df_sample = pd.read_csv('data/csvs/data_publications_2024_5_TestSample.csv')
+    projIds = df['projId'].str.split(',').explode().unique().tolist()
     df_proj = df_proj[df_proj['projId'].isin(projIds)]
-    df_sample.to_csv('data/csvs/data_publications_2024_5_TestSample.csv', index=False)
-    df_proj.to_csv('data/csvs/data_projects_2024_5_TestSample.csv', index=False)
+    df = df[df['projId'].apply(lambda x: any(proj in x.split(',') for proj in df_proj['projId']))]
+    df.to_csv('data/csvs/data_publications_2024_5_TestSample_Large.csv', index=False)
+    df_proj.to_csv('data/csvs/data_projects_2024_5_TestSample_Large.csv', index=False)
 
 #extractProjectsToCSV()
 #extractPublicationsToCSV()
@@ -325,6 +327,7 @@ if __name__ == "__main__":
 #getSimilarTestData()
     #mapVectorStore(Chroma(persist_directory = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_TestSample"))
     createTestSample()
+    
     
 #createNormalized("data/vectorStores/data_projects_2024_5_vector_store_VoyageAI")
 #cleanUpProjectData()
