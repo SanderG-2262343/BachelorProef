@@ -14,7 +14,8 @@ def cleanParticipants(participants):
 def cleanDisciplines(disciplines):
     if pd.isnull(disciplines):
         return ""
-    return ", ".join([d[7:] for d in disciplines.split(";")])
+    set_disciplines = set([d[7:] for d in disciplines.split(";")])
+    return ", ".join(set_disciplines)
 
 STORAGE_DIR = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_Title"
 CURRENT_DATASET = "data/csvs/data_projects_2024_5_participants.csv"

@@ -174,6 +174,18 @@ def getProjectIdsFris(publication):
         projectIds.append(project.attrib['uuid'])
     return  ",".join(projectIds)
 
+def getOrganisations(project):
+    organizations = project.findall('.//fris:organisation/fris:name/fris:texts/fris:text[@locale="en"]',namespaces)
+    if organizations is None:
+        return ""
+    organizationsList = []
+    for organization in organizations:
+        try:
+            if organization.text:
+                organizationsList.append(organization.text)
+        except AttributeError as e:
+            pass
+    return ", ".join(set(organizationsList))
     
 # Function to extract projects from FRIS to CSV with newer format
 def extractProjectsToCSVFris():
@@ -191,14 +203,17 @@ def extractProjectsToCSVFris():
 
         rows = []
         for project in projects:
-            try:               
+            try:
+                dataProvider = project.find("./fris:dataProvider",namespaces)             
                 rows.append({   
                 'projId': project.attrib['uuid'],
                 'title': extractTextFromHtml(project.find('./fris:name/fris:texts/fris:text[@locale="en"]',namespaces).text),
                 'abstract': extractTextFromHtml(project.find('./fris:projectAbstract/fris:texts/fris:text[@locale="en"]',namespaces).text),
                 'participants': getParticipantsFris(project),
                 'disciplines':  getDisciplinesFris(project),
-                'flemishDisciplines': getDisciplinesFris(project,flemish=True)
+                'flemishDisciplines': getDisciplinesFris(project,flemish=True),
+                'organization': getOrganisations(project),
+                'dataProvider': dataProvider.text if dataProvider is not None and dataProvider.text is not None  else ""
                 })
             except AttributeError as e:
                 pass
@@ -227,6 +242,7 @@ def getDfFromPublicationXml(xml_file):
         rows = []
         for publication in publications:
             try:
+                dataProvider = publication.find("./fris:dataProvider",namespaces)             
                 rows.append({   
                 'id': publication.attrib['uuid'],
                 'projId': getProjectIdsFris(publication),
@@ -234,7 +250,9 @@ def getDfFromPublicationXml(xml_file):
                 'abstract': extractTextFromHtml(publication.find('./fris:researchAbstract/fris:texts/fris:text[@locale="en"]',namespaces).text),
                 'participants': getParticipantsFris(publication),
                 'disciplines':  getDisciplinesFris(publication),
-                'flemishDisciplines': getDisciplinesFris(publication,flemish=True)
+                'organization': getOrganisations(publication),
+                'flemishDisciplines': getDisciplinesFris(publication,flemish=True),
+                'dataProvider': dataProvider.text if dataProvider is not None and dataProvider.text is not None  else ""
                 })
             except AttributeError as e:
                 pass
@@ -322,11 +340,12 @@ def createTestSample():
 #extractPublicationsToCSV()
 #extractProjectsToCSVFris()
 if __name__ == "__main__":
-    #extractPublicationsToCSVFris()
+    extractPublicationsToCSVFris()
     #extractProjectsToCSVFris()
 #getSimilarTestData()
     #mapVectorStore(Chroma(persist_directory = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_TestSample"))
-    createTestSample()
+    #createTestSample()
+    
     
     
 #createNormalized("data/vectorStores/data_projects_2024_5_vector_store_VoyageAI")

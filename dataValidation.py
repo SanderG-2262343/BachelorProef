@@ -162,8 +162,8 @@ def testEmbeddingVoyageAI(abstracts,titles,projIds,vector_store,top_k = 2,embedd
             if result.id in projIds[i]:
                 successfulmatch += 1
                 break
-        #if top_k == 100 and successfulmatch == oldsuccessmatch:
-        #    print(projIds[i])'
+        if top_k == 20 and successfulmatch == oldsuccessmatch:
+            print(projIds[i],titles[i],",".join([result.id for result in results]))
         
     
     #return successfulmatch2
@@ -175,19 +175,26 @@ def testEmbeddingGemini(abstracts,titles,projIds,vector_store,top_k = 2,embeddin
     embeddingsGemini = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
     combined = zipfunction(titles, abstracts)
     if not os.path.exists(embeddingsSave):
-        result = embeddingsGemini.models.embed_content(model="text-embedding-004",contents=combined,config=types.EmbedContentConfig(task_type="RETREIVAL_QUERY"))
-        embeddings = [embedding.values for embedding in result.embeddings]
+        embeddings = []
+        for i in range(0,len(abstracts),5):
+            print(f"Processing batch {i}")
+            result = embeddingsGemini.models.embed_content(model="gemini-embedding-exp-03-07",contents=combined[i:i+5])
+            embeddings += [embedding.values for embedding in result.embeddings]
+            time.sleep(60)
         pd.DataFrame(embeddings).to_csv(embeddingsSave,index=False)
     else:
         embeddings = pd.read_csv(embeddingsSave).values.tolist()
     for i in range(0, len(abstracts)):
         results = vector_store.similarity_search_by_vector(embeddings[i], top_k)
 
+        oldsuccessmatch = successfulmatch
         for result in results:
             #id = result.metadata['doc_id']
             if result.id in projIds[i]:
                 successfulmatch += 1
                 break
+        if top_k == 30 and successfulmatch == oldsuccessmatch:
+            print(projIds[i],titles[i])
     return successfulmatch
 
     
@@ -282,13 +289,13 @@ def runAllTests(vector_store_directoryVoyage, embeddingSaveDirectoryVoyage,
 #runTestsNomic(texts,titles,projIds, "data/vectorStores/data_projects_2024_5_vector_store_TitleAbstract","data/embeddingSaves/embeddingsNomic.csv")
 #runTestsTop2Vec(texts,titles,projIds)
 
-"""
+
 df = pd.read_csv("data/csvs/data_publications_2024_5_TestSample.csv")
 abstracts = df['abstract'].tolist()
 titles = df['title'].tolist()
 projIds = df['projId'].tolist()
-runTestGemini(abstracts,titles,projIds,"data/vectorStores/data_projects_2024_5_vector_store_Gemini_TestSample","data/embeddingSaves/embeddingsGemini.csv")
-"""
+runTestGemini(abstracts,titles,projIds,"data/vectorStores/data_projects_2024_5_vector_store_Gemini_exp_TestSample","data/embeddingSaves/embeddingsGemini_exp.csv")
+
 #print(time.ctime())
 #sucessrate = testEmbeddingVoyageAI(abstracts,titles,projIds,Chroma(embedding_function=VoyageAIEmbeddings(model="voyage-3-large",api_key=os.environ['VOYAGE_API_KEY']),persist_directory = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_TestSample"),3,embeddingsSave="data/embeddingSaves/embeddingsVoyage_TestSample.csv")
 #print(time.ctime())

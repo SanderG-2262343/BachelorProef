@@ -14,5 +14,3 @@ model.visualize_topics()
 print(model.get_topics())
 print(model.find_topics("cancer",5))
 
-
-
