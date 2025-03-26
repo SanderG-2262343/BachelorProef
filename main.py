@@ -14,19 +14,20 @@ from Embeddings.embeddingGemini import geminiEmbedding
 #    return ' '.join(filtered_sentence)
 
 def main():
-    vector_storeVoyageAIPath = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_TestSample_NoDuplDisciplines"
+    vector_storeVoyageAIPath = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_dataProviders_exact"
     vector_storeNomicPath = "data/vectorStores/data_projects_2024_5_vector_store_MxBai_TestSample"
     vector_storeGeminiPath = "data/vectorStores/data_projects_2024_5_vector_store_Gemini_exp_TestSample"
     top2vecModelPath = "data/models/top2vec_model_TestSample"
     currentDataset = "data/csvs/data_projects_2024_5_TestSample.csv"
 
-    geminiEmbedding(vector_storeGeminiPath,currentDataset)
-    #voyageAIEmbedding(vector_storeVoyageAIPath,currentDataset,zipfunction = lambda titles,abstracts,participants,disciplines: [f"{title} {discipline} {abstract}"  for title, abstract,discipline in zip(titles, abstracts,disciplines)])
-    #nomicEmbedding(vector_storeNomicPath,currentDataset,lambda titles,abstracts: [title + " " + abstract for title, abstract in zip(titles, abstracts)])
-    #top2vecModelTrain(top2vecModelPath,currentDataset,lambda titles,abstracts: [title + " " + abstract for title, abstract in zip(titles, abstracts)])
-    #runAllTests(vector_storeVoyageAIPath, "data/embeddingSaves/embeddingsVoyageTest.csv",
-    #            vector_storeNomicPath, "data/embeddingSaves/embeddingsMxBaiTest_Instruct.csv",
-    #            top2vecModelPath,"data/csvs/data_publications_2024_5_TestSample.csv"
-                #,[None,lambda titles,abstracts: ["Instruct: Compare this publication with a project \n Query:" + title + " " + abstract for title, abstract in zip(titles, abstracts)],None]
-    #            )
+    #geminiEmbedding(vector_storeGeminiPath,currentDataset)
+    voyageAIEmbedding(vector_storeVoyageAIPath,currentDataset,zipfunction = lambda titles,abstracts,participants,disciplines,dataProviders: [f"{title} {abstract}"  for title, abstract,dataProvider in zip(titles, abstracts,dataProviders)])
+    nomicEmbedding(vector_storeNomicPath,currentDataset,lambda titles,abstracts: [title + " " + abstract for title, abstract in zip(titles, abstracts)])
+    top2vecModelTrain(top2vecModelPath,currentDataset,lambda titles,abstracts: [title + " " + abstract for title, abstract in zip(titles, abstracts)])
+    runAllTests(vector_storeVoyageAIPath, "data/embeddingSaves/embeddingsVoyage_test_dataProvider.csv",
+                vector_storeNomicPath, "data/embeddingSaves/embeddingsMxBaiTest_Instruct.csv",
+                top2vecModelPath,"data/csvs/data_publications_2024_5_TestSample_dataP.csv"
+                #,[lambda titles,abstracts,participants,disciplines,dataProviders: ["Instruct: Compare this publication with a project \n Query:" + title + " " + dataProvider+ " " + abstract for title, abstract,dataProvider in zip(titles, abstracts,dataProviders)],None,None]
+                )
 main()
+

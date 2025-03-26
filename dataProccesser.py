@@ -340,11 +340,16 @@ def createTestSample():
 #extractPublicationsToCSV()
 #extractProjectsToCSVFris()
 if __name__ == "__main__":
-    extractPublicationsToCSVFris()
+    #extractPublicationsToCSVFris()
     #extractProjectsToCSVFris()
 #getSimilarTestData()
     #mapVectorStore(Chroma(persist_directory = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_TestSample"))
     #createTestSample()
+    df_proj = pd.read_csv('data/csvs/data_publications_2024_5_FRIS.csv')
+    df = pd.read_csv('data/csvs/data_publications_2024_5_TestSample.csv')
+    df = df.merge(df_proj[['id', 'dataProvider']], on='id', how='left')
+    df.to_csv('data/csvs/data_publications_2024_5_TestSample_dataP.csv', index=False)
+
     
     
     

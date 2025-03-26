@@ -7,6 +7,7 @@ from google import genai
 from google.genai import types
 import voyageai
 #from langchain_community.vectorstores import FAISS
+from Embeddings.embeddingVoyageAI import cleanParticipants, cleanDisciplines
 import top2vec.top2vec
 import os
 import shutil
@@ -25,7 +26,6 @@ def mergeEmbeddingsVectorStore():
     embeddingsVoyage = VoyageAIEmbeddings(model="voyage-3-large",api_key=os.environ['VOYAGE_API_KEY'])
     vector_store1=Chroma(embedding_function=embeddingsVoyage,persist_directory = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_Title")
     vector_store2=Chroma(embedding_function=embeddingsVoyage,persist_directory = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_Abstract")
-
     if os.path.exists("data/vectorStores/data_projects_2024_5_vector_store_combined"):
         shutil.rmtree("data/vectorStores/data_projects_2024_5_vector_store_combined")
     vector_store_combined = Chroma(embedding_function=embeddingsVoyage,persist_directory = "data/vectorStores/data_projects_2024_5_vector_store_combined")
@@ -44,17 +44,17 @@ def mergeEmbeddingsVectorStore():
 #faiss_store = FAISS.load_local("data_projects_2024_5_vector_store_TitleAbstract_faiss",embeddings=embeddings,allow_dangerous_deserialization=True)
 
 
-def runTestsVoyageAi(abstracts,titles,projIds,vector_store_directory,embeddingsSave,zipfunction  = None):
+def runTestsVoyageAi(publications,vector_store_directory,embeddingsSave,zipfunction  = None):
     embeddingsVoyage = VoyageAIEmbeddings(model="voyage-3-large",api_key=os.environ['VOYAGE_API_KEY'])
     vector_store = Chroma(embedding_function=embeddingsVoyage,persist_directory = vector_store_directory)
     #participants = df['participants'].tolist()
     
     for i in [1,2,3,5] + list(range(10, 110, 10)):
         if zipfunction == None:
-            successfulmatch = testEmbeddingVoyageAI(abstracts,titles,projIds,vector_store,i, embeddingsSave=embeddingsSave)
+            successfulmatch = testEmbeddingVoyageAI(publications,vector_store,i, embeddingsSave=embeddingsSave)
         else:
-            successfulmatch = testEmbeddingVoyageAI(abstracts,titles,projIds,vector_store,i, embeddingsSave=embeddingsSave,zipfunction=zipfunction)
-        print(f"Success Rate of VoyageAI with Top {i}: {successfulmatch * 100 / len(abstracts)}%")
+            successfulmatch = testEmbeddingVoyageAI(publications,vector_store,i, embeddingsSave=embeddingsSave,zipfunction=zipfunction)
+        print(f"Success Rate of VoyageAI with Top {i}: {successfulmatch * 100 / len(publications["abstract"])}%")
 
 def runTestGemini(abstracts,titles,projIds,vector_store_directory,embeddingsSave,zipfunction  = None):
     vector_store = Chroma(persist_directory = vector_store_directory)
@@ -87,15 +87,23 @@ def runTestsTop2Vec(abstracts,titles,projIds,top2vecModelFilename,zipfunction  =
         successfulmatch = testTop2VecModel(abstracts,titles,projIds,top2vecModel,i)
         print(f"Success Rate of Top2Vec with Top {i}: {successfulmatch * 100 / len(abstracts)}%")
 
-def testEmbeddingVoyageAI(abstracts,titles,projIds,vector_store,top_k = 2,embeddingsSave = "placeholder" ,
-                          zipfunction = lambda titles, abstracts: ["Instruct: Compare this publication with a project \n Query:" + title + " " + abstract for title, abstract in zip(titles, abstracts)]):
+def testEmbeddingVoyageAI(publications,vector_store,top_k = 2,embeddingsSave = "placeholder" ,
+                          zipfunction = lambda titles, abstracts,participants,disciplines,dataProviders: ["Instruct: Compare this publication with a project \n Query:" + title + " " + abstract for title, abstract in zip(titles, abstracts)]):
     successfulmatch = 0
     embeddingsVoyage = VoyageAIEmbeddings(model="voyage-3-large",api_key=os.environ['VOYAGE_API_KEY'])
 
     #voyageaiEmbed = voyageai.Client(api_key=os.environ['VOYAGE_API_KEY'])
 
     #store embeddings locally for multiple runs
-    combined = zipfunction(titles, abstracts)
+    titles = publications['title'].tolist()
+    abstracts = publications['abstract'].tolist()
+    projIds = publications['projId'].tolist()
+    participants = publications['participants'].tolist()
+    participants = [cleanParticipants(participant) for participant in participants]
+    disciplines = publications['flemishDisciplines'].tolist()
+    disciplines = [cleanDisciplines(discipline) for discipline in disciplines] #remove prefix code
+    dataProviders = publications['dataProvider'].tolist()
+    combined = zipfunction(titles, abstracts, participants, disciplines, dataProviders)
     #combined = [title + " " + text for title, text in zip(titles, texts)]
 
     
@@ -134,7 +142,7 @@ def testEmbeddingVoyageAI(abstracts,titles,projIds,vector_store,top_k = 2,embedd
         #if i % 100 == 0:
             #print(f"Processing publication {i}")
 
-        results = vector_store.similarity_search_by_vector(embeddings[i], top_k)
+        results = vector_store.similarity_search_by_vector(embeddings[i], top_k,filter = {"dataProvider": dataProviders[i]})
         #results = vector_store.max_marginal_relevance_search_by_vector(embeddings[i],top_k)
         #results = vector_store.similarity_search(titles[i] + texts[i], 2)
         #results = vector_store.search(titles[i] + texts[i],'mmr',k = 5)
@@ -273,11 +281,11 @@ def runAllTests(vector_store_directoryVoyage, embeddingSaveDirectoryVoyage,
     projIds = df['projId'].tolist()
 
     if zipfunctions is not None and len(zipfunctions) == 3:
-        runTestsVoyageAi(abstracts, titles, projIds, vector_store_directoryVoyage, embeddingSaveDirectoryVoyage, zipfunction=zipfunctions[0])
+        runTestsVoyageAi(df, vector_store_directoryVoyage, embeddingSaveDirectoryVoyage, zipfunction=zipfunctions[0])
         runTestsNomic(abstracts, titles, projIds, vector_store_directoryNomic, embeddingsSaveDirectoryNomic, zipfunction=zipfunctions[1])
         runTestsTop2Vec(abstracts, titles, projIds, top2vecModelFilename,zipfunction=zipfunctions[2])
     else:
-        runTestsVoyageAi(abstracts, titles, projIds, vector_store_directoryVoyage, embeddingSaveDirectoryVoyage)
+        runTestsVoyageAi(df, vector_store_directoryVoyage, embeddingSaveDirectoryVoyage)
         runTestsNomic(abstracts, titles, projIds, vector_store_directoryNomic, embeddingsSaveDirectoryNomic)
         runTestsTop2Vec(abstracts, titles, projIds, top2vecModelFilename)
 
@@ -290,11 +298,11 @@ def runAllTests(vector_store_directoryVoyage, embeddingSaveDirectoryVoyage,
 #runTestsTop2Vec(texts,titles,projIds)
 
 
-df = pd.read_csv("data/csvs/data_publications_2024_5_TestSample.csv")
-abstracts = df['abstract'].tolist()
-titles = df['title'].tolist()
-projIds = df['projId'].tolist()
-runTestGemini(abstracts,titles,projIds,"data/vectorStores/data_projects_2024_5_vector_store_Gemini_exp_TestSample","data/embeddingSaves/embeddingsGemini_exp.csv")
+#df = pd.read_csv("data/csvs/data_publications_2024_5_TestSample.csv")
+#abstracts = df['abstract'].tolist()
+#titles = df['title'].tolist()
+#projIds = df['projId'].tolist()
+#runTestGemini(abstracts,titles,projIds,"data/vectorStores/data_projects_2024_5_vector_store_Gemini_exp_TestSample","data/embeddingSaves/embeddingsGemini_exp.csv")
 
 #print(time.ctime())
 #sucessrate = testEmbeddingVoyageAI(abstracts,titles,projIds,Chroma(embedding_function=VoyageAIEmbeddings(model="voyage-3-large",api_key=os.environ['VOYAGE_API_KEY']),persist_directory = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_TestSample"),3,embeddingsSave="data/embeddingSaves/embeddingsVoyage_TestSample.csv")
