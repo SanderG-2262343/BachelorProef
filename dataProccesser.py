@@ -143,7 +143,9 @@ def getParticipantsFris(project):
     participantsList = []
     for participant in participants:
         try:
-            name = participant.find('./fris:assignment/fris:person/fris:name',namespaces)
+            name = participant.find('.//fris:person/fris:name',namespaces)
+            if name.find('./fris:firstName',namespaces).text == None or name.find('./fris:lastName',namespaces).text == None:
+                print(name.content)
             participantsList.append(name.find('./fris:firstName',namespaces).text + " " + name.find('./fris:lastName',namespaces).text)
         except AttributeError as e:  # if any of the fields are missing, skip this participant
             pass
@@ -324,31 +326,34 @@ def createNormalized(vector_store_location):
     
     return vector_store
 
-def createTestSample():
+def createTestSample(sampleLocation = "TestSample.csv",sampleSize = 100):
     df = pd.read_csv('data/csvs/data_publications_2024_5_FRIS_WithProjIdsOnly.csv')
     df_proj = pd.read_csv('data/csvs/data_projects_2024_5_FRIS_2.csv')
     df_proj = df_proj[df_proj['abstract'].str.len() > 200]
-    #df_sample = df.sample(100)
+    df_sample = df.sample(sampleSize)
     #df_sample = pd.read_csv('data/csvs/data_publications_2024_5_TestSample.csv')
-    projIds = df['projId'].str.split(',').explode().unique().tolist()
+    projIds = df_sample['projId'].str.split(',').explode().unique().tolist()
     df_proj = df_proj[df_proj['projId'].isin(projIds)]
-    df = df[df['projId'].apply(lambda x: any(proj in x.split(',') for proj in df_proj['projId']))]
-    df.to_csv('data/csvs/data_publications_2024_5_TestSample_Large.csv', index=False)
-    df_proj.to_csv('data/csvs/data_projects_2024_5_TestSample_Large.csv', index=False)
+    df_sample = df_sample[df_sample['projId'].apply(lambda x: any(proj in x.split(',') for proj in df_proj['projId']))]
+    df_sample.to_csv('data/csvs/data_publications_2024_5_' + sampleLocation, index=False)
+    df_proj.to_csv('data/csvs/data_projects_2024_5_' + sampleLocation, index=False)
 
 #extractProjectsToCSV()
 #extractPublicationsToCSV()
 #extractProjectsToCSVFris()
 if __name__ == "__main__":
     #extractPublicationsToCSVFris()
-    #extractProjectsToCSVFris()
+    extractProjectsToCSVFris()
 #getSimilarTestData()
     #mapVectorStore(Chroma(persist_directory = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_TestSample"))
+    
     #createTestSample()
-    df_proj = pd.read_csv('data/csvs/data_publications_2024_5_FRIS.csv')
-    df = pd.read_csv('data/csvs/data_publications_2024_5_TestSample.csv')
-    df = df.merge(df_proj[['id', 'dataProvider']], on='id', how='left')
-    df.to_csv('data/csvs/data_publications_2024_5_TestSample_dataP.csv', index=False)
+    
+
+    #df_proj = pd.read_csv('data/csvs/data_projects_2024_5_FRIS_2.csv')
+    #df = pd.read_csv('data/csvs/data_projects_2024_5_TestSample_Large.csv')
+    #df = df.merge(df_proj[['projId', 'dataProvider']], on='projId', how='left')
+    #df.to_csv('data/csvs/data_projects_2024_5_TestSample_Large.csv', index=False)
 
     
     
