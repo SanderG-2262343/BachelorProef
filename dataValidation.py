@@ -2,10 +2,12 @@ import pandas as pd
 from langchain_ollama import OllamaEmbeddings
 from langchain_chroma import Chroma
 from langchain_voyageai import VoyageAIEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from sentence_transformers import CrossEncoder
 from google import genai
 from google.genai import types
 import voyageai
+import torch
 #from langchain_community.vectorstores import FAISS
 from Embeddings.embeddingVoyageAI import cleanParticipants, cleanDisciplines
 import top2vec.top2vec
@@ -43,13 +45,30 @@ def mergeEmbeddingsVectorStore():
 #allow_dangerous_deserialization=True since we made in EmbeddingNomicLocal.py
 #faiss_store = FAISS.load_local("data_projects_2024_5_vector_store_TitleAbstract_faiss",embeddings=embeddings,allow_dangerous_deserialization=True)
 
+def runTestsLingMinstral(publications,vector_store_directory,embeddingsSave,zipfunction  = None):
+    embeddingsLingMistral = HuggingFaceEmbeddings(model_name="Linq-AI-Research/Linq-Embed-Mistral",
+        model_kwargs={
+        "device": "cuda",
+        "model_kwargs" : {"torch_dtype": torch.float16},  # run in fp16 to save ~50% memory
+    }
+    )
+    vector_store = Chroma(embedding_function=embeddingsLingMistral,persist_directory = vector_store_directory)
+    #participants = df['participants'].tolist()
+    
+    for i in [1,2,3,5] + list(range(10, 20, 10)):
+        if zipfunction == None:
+            successfulmatch = testEmbeddingLingMinstral(publications,vector_store,i, embeddingsSave=embeddingsSave)
+        else:
+            successfulmatch = testEmbeddingLingMinstral(publications,vector_store,i, embeddingsSave=embeddingsSave,zipfunction=zipfunction)
+        print(f"Success Rate of LingMinstral with Top {i}: {successfulmatch * 100 / len(publications['abstract'])}%")
+
 
 def runTestsVoyageAi(publications,vector_store_directory,embeddingsSave,zipfunction  = None):
     embeddingsVoyage = VoyageAIEmbeddings(model="voyage-3-large",api_key=os.environ['VOYAGE_API_KEY'])
     vector_store = Chroma(embedding_function=embeddingsVoyage,persist_directory = vector_store_directory)
     #participants = df['participants'].tolist()
     
-    for i in [1,2,3,5] + list(range(10, 110, 10)):
+    for i in [1,2,3,5] + list(range(10, 20, 10)):
         if zipfunction == None:
             successfulmatch = testEmbeddingVoyageAI(publications,vector_store,i, embeddingsSave=embeddingsSave)
         else:
@@ -86,6 +105,49 @@ def runTestsTop2Vec(abstracts,titles,projIds,top2vecModelFilename,zipfunction  =
             successfulmatch = testTop2VecModel(abstracts,titles,projIds,top2vecModel,i,zipfunction)
         successfulmatch = testTop2VecModel(abstracts,titles,projIds,top2vecModel,i)
         print(f"Success Rate of Top2Vec with Top {i}: {successfulmatch * 100 / len(abstracts)}%")
+
+
+def testEmbeddingLingMinstral(publications,vector_store,top_k = 2,embeddingsSave = "placeholder" ,
+                          zipfunction = lambda titles, abstracts,participants,disciplines,dataProviders: ["Instruct: Compare this publication with a project \n Query:" + title + " " + abstract for title, abstract in zip(titles, abstracts)]):
+    successfulmatch = 0
+    embeddingsLingMistral = HuggingFaceEmbeddings(model_name="Linq-AI-Research/Linq-Embed-Mistral",
+        model_kwargs={
+        "device": "cuda",
+        "model_kwargs" : {"torch_dtype": torch.float16},  # run in fp16 to save ~50% memory
+    }
+    )
+
+    #voyageaiEmbed = voyageai.Client(api_key=os.environ['VOYAGE_API_KEY'])
+
+    #store embeddings locally for multiple runs
+    titles = publications['title'].tolist()
+    abstracts = publications['abstract'].tolist()
+    projIds = publications['projId'].tolist()
+    participants = publications['participants'].tolist()
+    participants = [cleanParticipants(participant) for participant in participants]
+    disciplines = publications['flemishDisciplines'].tolist()
+    disciplines = [cleanDisciplines(discipline) for discipline in disciplines] #remove prefix code
+    dataProviders = publications['dataProvider'].tolist()
+    combined = zipfunction(titles, abstracts, participants, disciplines, dataProviders)
+
+    
+
+    if not os.path.exists(embeddingsSave):
+        embeddingsLingMistral.batch_size = 128
+        embeddings = embeddingsLingMistral.embed_documents(combined)
+        pd.DataFrame(embeddings).to_csv(embeddingsSave,index=False)
+    else:
+        embeddings = pd.read_csv(embeddingsSave).values.tolist()
+
+    for i in range(0, len(abstracts)):
+        results = vector_store.similarity_search_by_vector(embeddings[i], top_k)
+        for result in results:
+            #id = result.metadata['doc_id']
+            if result.id in projIds[i]:
+                successfulmatch += 1
+                break
+    return successfulmatch
+
 
 def testEmbeddingVoyageAI(publications,vector_store,top_k = 2,embeddingsSave = "placeholder" ,
                           zipfunction = lambda titles, abstracts,participants,disciplines,dataProviders: ["Instruct: Compare this publication with a project \n Query:" + title + " " + abstract for title, abstract in zip(titles, abstracts)]):
@@ -142,7 +204,9 @@ def testEmbeddingVoyageAI(publications,vector_store,top_k = 2,embeddingsSave = "
         #if i % 100 == 0:
             #print(f"Processing publication {i}")
 
-        results = vector_store.similarity_search_by_vector(embeddings[i], top_k,filter = {"dataProvider": dataProviders[i]})
+        results = vector_store.similarity_search_by_vector(embeddings[i], top_k,
+                                                           filter = {"dataProvider": dataProviders[i]}
+                                                           )
         #results = vector_store.max_marginal_relevance_search_by_vector(embeddings[i],top_k)
         #results = vector_store.similarity_search(titles[i] + texts[i], 2)
         #results = vector_store.search(titles[i] + texts[i],'mmr',k = 5)
@@ -170,8 +234,8 @@ def testEmbeddingVoyageAI(publications,vector_store,top_k = 2,embeddingsSave = "
             if result.id in projIds[i]:
                 successfulmatch += 1
                 break
-        if top_k == 20 and successfulmatch == oldsuccessmatch:
-            print(projIds[i],titles[i],",".join([result.id for result in results]))
+        #if top_k == 20 and successfulmatch == oldsuccessmatch:
+        #    print(projIds[i],titles[i],",".join([result.id for result in results]))
         
     
     #return successfulmatch2

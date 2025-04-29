@@ -1,8 +1,9 @@
-from dataValidation import runAllTests,runTestsVoyageAi
+from dataValidation import runAllTests,runTestsVoyageAi,runTestsLingMinstral
 from Embeddings.embeddingVoyageAI import voyageAIEmbedding
 from Embeddings.embeddingNomicLocal import nomicEmbedding
 from Embeddings.embeddingTop2Vec import top2vecModelTrain
 from Embeddings.embeddingGemini import geminiEmbedding
+from Embeddings.embeddingLinqMinstral import LinqMinstralEmbedding
 from dataProccesser import createTestSample
 import os
 import shutil
@@ -19,18 +20,18 @@ import pandas as pd
 
 def multipleSamples():
     
-    for i in range(1, 10):
+    for i in range(0, 20):
         testSampleLocation = f"TestSampleM_{i}.csv"
-        if os.path.exists("data/csvs/data_publications_2024_5_" + testSampleLocation):
-            os.remove("data/csvs/data_publications_2024_5_" + testSampleLocation)
-            os.remove(f"data/csvs/data_projects_2024_5_TestSampleM_{i}.csv")
-        if os.path.exists(f"data/embeddingsSaves/embeddingsVoyage_TestSampleM_{i}.csv"):
-            os.remove(f"data/embeddingSaves/embeddingsVoyage_TestSampleM_{i}.csv")
-        if os.path.exists(f"data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_TestSampleM_{i}"):
-            shutil.rmtree(f"data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_TestSampleM_{i}")
+        #if os.path.exists("data/csvs/data_publications_2024_5_" + testSampleLocation):
+        #    os.remove("data/csvs/data_publications_2024_5_" + testSampleLocation)
+        #    os.remove(f"data/csvs/data_projects_2024_5_TestSampleM_{i}.csv")
+        #if os.path.exists(f"data/embeddingSaves/embeddingsVoyage_TestSampleM_{i}.csv"):
+        #    os.remove(f"data/embeddingSaves/embeddingsVoyage_TestSampleM_{i}.csv")
+        #if os.path.exists(f"data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_TestSampleM_{i}"):
+        #    shutil.rmtree(f"data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_TestSampleM_{i}")
         print(f"Creating test sample {i}")
 
-        createTestSample(testSampleLocation)
+        #createTestSample(testSampleLocation)
         vector_storeVoyageAIPath = f"data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_TestSampleM_{i}"
         voyageAIEmbedding(vector_storeVoyageAIPath,f"data/csvs/data_projects_2024_5_TestSampleM_{i}.csv")
         publicationdata = pd.read_csv("data/csvs/data_publications_2024_5_" + testSampleLocation)
@@ -55,5 +56,7 @@ def main():
                 ,[lambda titles,abstracts,participants,disciplines,dataProviders: ["Instruct: Compare this publication with a project \n Query: Title: " + title + " Abstract: " + abstract for title, abstract,dataProvider in zip(titles, abstracts,dataProviders)],lambda titles, abstracts: ["Title: " + title + " Abstract:" + abstract for title, abstract in zip(titles, abstracts)],lambda titles, abstracts: ["Title: " + title + " Abstract:" + abstract for title, abstract in zip(titles, abstracts)]]
                 )
 #main()
-multipleSamples()
+#multipleSamples()
+#LinqMinstralEmbedding("data/vectorStores/data_projects_2024_5_vector_store_LinqMinstral_Title","data/csvs/data_projects_2024_5_TestSample.csv")
+runTestsLingMinstral("data/vectorStores/data_projects_2024_5_vector_store_LinqMinstral_Title","data/embeddingSaves/embeddingsLinqMinstral_TestSample.csv","data/csvs/data_publications_2024_5_TestSample_dataP.csv")
 
