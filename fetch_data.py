@@ -5,6 +5,9 @@ import os
 import xml.etree.ElementTree as ET
 import pandas as pd
 
+# Old code to fetch data from the FRIS API
+# DO NOT USE
+#
 
 def clean_cerif_xml_data(xmlstring):
     xmlstring = xmlstring.replace(' xmlns="http://fris.ewi.be/response"', '')

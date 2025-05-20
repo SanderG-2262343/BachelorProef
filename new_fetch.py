@@ -6,6 +6,8 @@ import re
 
 parser = etree.XMLParser(recover=True)
 
+# Projects or publications
+# RC: set to True if you want to download projects, False for publications
 PROJECTS = True
 
 pageNumber = 0  # RC: pageNumber start value

@@ -22,6 +22,8 @@ import pandas as pd
 #    filtered_sentence = [w for w in word_tokens if not w.lower() in stop_words]
 #    return ' '.join(filtered_sentence)
 
+
+# Create multiple test samples and evaluate them, used for testing variance in samples
 def multipleSamples():
     
     for i in range(0, 20):
@@ -43,6 +45,7 @@ def multipleSamples():
         
 
 
+#Run all tests on the VoyageAI and Nomic and top2vec embeddings, define the zip function for data of each embedding
 def main():
     vector_storeVoyageAIPath = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_TA_Names_Disciplines_DP_TestSample"
     vector_storeNomicPath = "data/vectorStores/data_projects_2024_5_vector_store_Nomic_Names_TestSample"

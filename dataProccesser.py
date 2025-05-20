@@ -29,8 +29,6 @@ def cleanUpProjectData():
     df.to_csv('data/csvs/data_projects_2024_5_participants_noDuplicates.csv', index=False)
 
 
-
-
 def extractTextFromHtml(html):
     if html is None:
         return ''
@@ -38,7 +36,7 @@ def extractTextFromHtml(html):
     text = soup.get_text(separator=" ")
     return re.sub(r'\s+', ' ', text).strip()
 
-
+# Helper function to extract participants from xml
 def getParticipants(participants):
     names = []
     for participant in participants:
@@ -48,47 +46,7 @@ def getParticipants(participants):
             pass
     return ",".join(names)
 
-def extractProjectsToCSV():
-    df = pd.DataFrame()
-
-    for xml_file in glob.glob("data/rawXml/data_projects_2024_5/*.xml"):
-        print(f"Processing file: {xml_file}")
-        tree = ET.parse(xml_file)
-
-        root = tree.getroot()
-
-        projects = root.findall('.//cfProj')
-
-
-        rows = []
-        for project in projects:
-            try:
-                if len(extractTextFromHtml(project.find('cfAbstr[@cfLangCode="en"]').text)) < 10:
-                    #print(f"Empty abstract for project: {project.find('cfProjId').text}")
-                    continue
-                
-                participants = project.findall('.//frParticipant')
-
-                
-                rows.append({   
-                'cfProjId': project.find('cfProjId').text,
-                'cfTitle': extractTextFromHtml(project.find('cfTitle[@cfLangCode="en"]').text),
-                'cfAbstr': extractTextFromHtml(project.find('cfAbstr[@cfLangCode="en"]').text),
-                'cfParticipants': getParticipants(participants)
-                })
-            except:   # if any of the fields are missing, skip this project
-                pass
-            
-
-        temp_df = pd.DataFrame(rows)
-        df = pd.concat([df, temp_df], ignore_index=True)
-
-    df = df[df['cfAbstr'].str.len() >= 200]
-    df = df[df['cfAbstr'] != "A BOF-ZAP professorship granted by the Special Research Fund is a primarily research-oriented position and is made available for excellent researchers with a high-quality research programme."]
-    df = df[df['cfAbstr'] != "A BOF-TT mandate holder receives an appointment as a Tenure Track with mainly research assignment. The salary costs are charged to the Special research Fund (BOF)."]
-    df.to_csv('data/csvs/data_projects_2024_5_particapants.csv', index=False)
-
-
+# Helper function to extract disciplines from xml
 def getProjectIds(publication):
     publ_ids = publication.findall('cfProj_ResPubl')
     projectIds = []
@@ -97,46 +55,8 @@ def getProjectIds(publication):
     output =  ",".join(projectIds) if projectIds else None 
     return output
 
-def extractPublicationsToCSV():
-    df = pd.DataFrame()
 
-    
-
-    for xml_file in glob.glob("data/rawXml/data_publications_2024_5/*.xml"):
-        print(f"Processing file: {xml_file}")
-        tree = ET.parse(xml_file)
-
-        root = tree.getroot()
-
-        publications = root.findall('.//cfResPubl')
-        rows = []
-        for publication in publications:
-            try:
-                rows.append({
-                'cfPublId': publication.find('cfResPublId').text,
-                'cfProjId': getProjectIds(publication),
-                'cfTitle': extractTextFromHtml(publication.find('cfTitle[@cfLangCode="en"]').text),
-                'cfAbstr': extractTextFromHtml(publication.find('cfAbstr[@cfLangCode="en"]').text),
-                })
-            except AttributeError as e:
-                #
-                #if publication.find('cfResPublId') is None:
-                #    print(f"Publication has no ID")
-                #elif publication.find('cfTitle[@cfLangCode="en"]') is None:
-                #    print(f"Publication has no english title")
-                #elif publication.find('cfAbstr[@cfLangCode="en"]') is None:
-                #    print(f"Publication has no english abstract")
-                #else:
-                #    print(f"Unknown error: {e}")
-                pass
-
-        temp_df = pd.DataFrame(rows)
-        df = pd.concat([df, temp_df], ignore_index=True)
-
-    
-    df.to_csv('data/csvs/data_publications_2024_5_2.csv', index=False)
-    
-
+# Helper function to extract participants from xml
 def getParticipantsFris(project):
     participants = project.findall('.//fris:participants/fris:participant',namespaces)   
 
@@ -151,6 +71,7 @@ def getParticipantsFris(project):
             pass
     return ", ".join(participantsList)
 
+# Helper function to extract disciplines from xml
 def getDisciplinesFris(project, flemish = False):
     if flemish:
         disciplines = project.findall('.//fris:flemishDisciplines/fris:flemishDisciplines',namespaces)
@@ -169,6 +90,7 @@ def getDisciplinesFris(project, flemish = False):
     return ";".join(disciplinesList)
 
 
+# Helper function to extract project IDs from xml
 def getProjectIdsFris(publication):
     projects = publication.findall('./fris:researchOutputProjects/fris:researchOutputProject/fris:project',namespaces)
     projectIds = []
@@ -176,6 +98,7 @@ def getProjectIdsFris(publication):
         projectIds.append(project.attrib['uuid'])
     return  ",".join(projectIds)
 
+# Helper function to extract organization names from xml
 def getOrganisations(project):
     organizations = project.findall('.//fris:organisation/fris:name/fris:texts/fris:text[@locale="en"]',namespaces)
     if organizations is None:
@@ -229,7 +152,8 @@ def extractProjectsToCSVFris():
     
     df.to_csv('data/csvs/data_projects_2024_5_FRIS_2.csv', index=False)
 
-
+# Helper function to extract publication data from each individual XML file
+# and return it as a DataFrame
 def getDfFromPublicationXml(xml_file):
         with open(xml_file, "r", encoding="utf-8", errors="replace") as f:
             xml_content = f.read() 
@@ -262,6 +186,7 @@ def getDfFromPublicationXml(xml_file):
         temp_df = pd.DataFrame(rows)
         return temp_df
  
+ # Function to extract publications from FRIS XML to CSV
 def extractPublicationsToCSVFris():
     df = pd.DataFrame()
 
@@ -282,7 +207,7 @@ def extractPublicationsToCSVFris():
     
     df.to_csv('data/csvs/data_publications_2024_5_FRIS.csv', index=False)
 
-
+#Adding Partoners to the publication data
 def getSimilarTestData():
     df = pd.read_csv('data/csvs/data_publications_2024_5.csv')
     df2 = pd.read_csv('data/csvs/data_publications_2024_5_FRIS.csv',dtype={'participants': str, 'disciplines': str, 'flemishDisciplines': str})
@@ -293,7 +218,7 @@ def getSimilarTestData():
     df_merged.drop(columns=['id'],inplace=True)
     df_merged.to_csv('data/csvs/data_publications_2024_5_FRIS_matched.csv', index=False)
 
-
+# attempt for UMAP visualisation
 def mapVectorStore(vector_store):
 
     embeddings = vector_store.get(include=['embeddings'])['embeddings']
@@ -326,6 +251,7 @@ def createNormalized(vector_store_location):
     
     return vector_store
 
+#create a test sample of the data for testing
 def createTestSample(sampleLocation = "TestSample.csv",sampleSize = 100):
     df = pd.read_csv('data/csvs/data_publications_2024_5_FRIS_WithProjIdsOnly.csv')
     df_proj = pd.read_csv('data/csvs/data_projects_2024_5_FRIS_2.csv')
@@ -344,7 +270,7 @@ def createTestSample(sampleLocation = "TestSample.csv",sampleSize = 100):
 if __name__ == "__main__":
     #extractPublicationsToCSVFris()
     extractProjectsToCSVFris()
-#getSimilarTestData()
+    #getSimilarTestData()
     #mapVectorStore(Chroma(persist_directory = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_TestSample"))
     
     #createTestSample()

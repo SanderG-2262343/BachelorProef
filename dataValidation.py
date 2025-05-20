@@ -42,9 +42,8 @@ def mergeEmbeddingsVectorStore():
         embeddings = embeddings / np.linalg.norm(embeddings,axis=1, keepdims=True)
         vector_store_combined._collection.add(ids=data1['ids'][i:i+1000], embeddings=embeddings,documents=[""] * len(data1['embeddings'][i:i+1000]))  #add without document
     
-#allow_dangerous_deserialization=True since we made in EmbeddingNomicLocal.py
-#faiss_store = FAISS.load_local("data_projects_2024_5_vector_store_TitleAbstract_faiss",embeddings=embeddings,allow_dangerous_deserialization=True)
 
+# run the tests for LingMinstral model
 def runTestsLingMinstral(publications,vector_store_directory,embeddingsSave,zipfunction  = None):
     embeddingsLingMistral = HuggingFaceEmbeddings(model_name="Linq-AI-Research/Linq-Embed-Mistral",multi_proccess=True,
         model_kwargs={
