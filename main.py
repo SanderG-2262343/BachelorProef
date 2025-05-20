@@ -122,15 +122,14 @@ def getCorrelatedPublicationData(projId,k):
     # Get the project data
     project_data = df[df['projId'] == projId]
 
-    input = f"Instruct: Compare this project with a publication \n Query: Title: {project_data["title"].tolist()[0]} Abstract: {project_data["abstract"].tolist()[0]} Disciplines: {cleanDisciplines(project_data["flemishDisciplines"].tolist()[0])}" 
 
+    input = f"Instruct: Compare this project with a publication \n Query: Title: {project_data["title"].tolist()[0]} Abstract: {project_data["abstract"].tolist()[0]} Disciplines: {cleanDisciplines(project_data["flemishDisciplines"].tolist()[0])}" 
     embedding = model.embed_documents([input])
 
     result = vector_store.similarity_search_by_vector(embedding, k=k, 
                                                       #filter={"dataProvider": {"$contains": project_data["dataProvider"]}}
                                                       )
 
-    for i in range(len(result)):
-        print(result[i].page_content)
+    return [result.page_content for result in result]  #convert to a list of page_content
 
-getCorrelatedPublicationData("915b7539-7c50-4c20-8f81-d7f437720871",5)
+#getCorrelatedPublicationData("915b7539-7c50-4c20-8f81-d7f437720871",5)

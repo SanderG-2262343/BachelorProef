@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Project Search</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Find Correlated Publications</h1>
+    <form id="project-form">
+        <input type="text" id="project-search" placeholder="Start typing project title..." autocomplete="off">
+        <input type="hidden" name="proj_id" id="proj-id">
+
+        <div id="suggestions", hidden="True"></div>
+
+        <label for="k">Number of Results:</label>
+        <input type="number" name="k" id="k" min="1" value="5" required><br><br>
+
+        <button type="submit">Get Correlated Publications</button>
+    </form>
+
+    <div id="results"></div>
+
+    <script src="{{ url_for('static', filename='search.js') }}"></script>
+</body>
+</html>
