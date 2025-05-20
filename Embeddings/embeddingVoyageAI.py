@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 def cleanParticipants(participants):
     if pd.isnull(participants):
-        return
+        return ""
     return ", ".join(set(participants.split(", ")))
 
 def cleanDisciplines(disciplines):
@@ -20,7 +20,7 @@ def cleanDisciplines(disciplines):
 STORAGE_DIR = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_Title"
 CURRENT_DATASET = "data/csvs/data_projects_2024_5_participants.csv"
 def voyageAIEmbedding(StorageDir = STORAGE_DIR,Current_Dataset = CURRENT_DATASET,
-                      zipfunction = lambda titles,abstracts,participants,disciplines,dataProvider: [title + " " + abstract for title, abstract in zip(titles, abstracts)]):
+                      zipfunction = lambda titles,abstracts,participants,disciplines,dataProvider: [title + " " + abstract for title, abstract in zip(titles, abstracts)],publications = False):
 
     if os.path.exists(StorageDir): #If data not already processed
         print("Data already processed")
@@ -48,7 +48,7 @@ def voyageAIEmbedding(StorageDir = STORAGE_DIR,Current_Dataset = CURRENT_DATASET
     abstracts = project_data['abstract'].tolist()
     titles = project_data['title'].tolist()
     participants = project_data['participants'].tolist()
-    participants = [cleanParticipants(participant) for participant in participants] # remove duplicate authors
+    participants = [cleanParticipants(participant) for participant in participants] # remove duplicate authors and split so a list of authors since going in metadata
     disciplines = project_data['flemishDisciplines'].tolist()
     disciplines = [cleanDisciplines(discipline) for discipline in disciplines] #remove prefix code
     dataProvider = project_data['dataProvider'].tolist()
@@ -58,4 +58,7 @@ def voyageAIEmbedding(StorageDir = STORAGE_DIR,Current_Dataset = CURRENT_DATASET
     combined = zipfunction(titles,abstracts,participants,disciplines,dataProvider)
     for i in range(0,len(project_data['abstract']),batch_size):
         print(f"Processing batch {i}")
-        vector_store.add_texts(texts=combined[i:i+batch_size], ids=project_data['projId'][i:i+batch_size],metadatas=[{"dataProvider": dp} for dp in dataProvider[i:i+batch_size]])
+        if publications:
+            vector_store.add_texts(texts=combined[i:i+batch_size], ids=project_data['id'][i:i+batch_size],metadatas=[{"dataProvider": dp,"participants" : authors} for dp,authors in zip(dataProvider[i:i+batch_size],participants[i:i+batch_size])])
+        else:
+            vector_store.add_texts(texts=combined[i:i+batch_size], ids=project_data['projId'][i:i+batch_size],metadatas=[{"dataProvider": dp,"participants" : authors} for dp,authors in zip(dataProvider[i:i+batch_size],participants[i:i+batch_size])])

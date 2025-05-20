@@ -46,7 +46,7 @@ def mergeEmbeddingsVectorStore():
 #faiss_store = FAISS.load_local("data_projects_2024_5_vector_store_TitleAbstract_faiss",embeddings=embeddings,allow_dangerous_deserialization=True)
 
 def runTestsLingMinstral(publications,vector_store_directory,embeddingsSave,zipfunction  = None):
-    embeddingsLingMistral = HuggingFaceEmbeddings(model_name="Linq-AI-Research/Linq-Embed-Mistral",
+    embeddingsLingMistral = HuggingFaceEmbeddings(model_name="Linq-AI-Research/Linq-Embed-Mistral",multi_proccess=True,
         model_kwargs={
         "device": "cuda",
         "model_kwargs" : {"torch_dtype": torch.float16},  # run in fp16 to save ~50% memory
@@ -55,6 +55,7 @@ def runTestsLingMinstral(publications,vector_store_directory,embeddingsSave,zipf
     vector_store = Chroma(embedding_function=embeddingsLingMistral,persist_directory = vector_store_directory)
     #participants = df['participants'].tolist()
     
+
     for i in [1,2,3,5] + list(range(10, 20, 10)):
         if zipfunction == None:
             successfulmatch = testEmbeddingLingMinstral(publications,vector_store,i, embeddingsSave=embeddingsSave)
@@ -110,6 +111,7 @@ def runTestsTop2Vec(abstracts,titles,projIds,top2vecModelFilename,zipfunction  =
 def testEmbeddingLingMinstral(publications,vector_store,top_k = 2,embeddingsSave = "placeholder" ,
                           zipfunction = lambda titles, abstracts,participants,disciplines,dataProviders: ["Instruct: Compare this publication with a project \n Query:" + title + " " + abstract for title, abstract in zip(titles, abstracts)]):
     successfulmatch = 0
+    
     embeddingsLingMistral = HuggingFaceEmbeddings(model_name="Linq-AI-Research/Linq-Embed-Mistral",
         model_kwargs={
         "device": "cuda",

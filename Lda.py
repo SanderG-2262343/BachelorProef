@@ -36,17 +36,18 @@ vector_store = chroma.Chroma()
 for i in range(0,len(doc_vectors),100):
     vector_store._collection.upsert(ids=df['projId'][i:i + 100].tolist(), embeddings=doc_vectors[i:i + 100],documents=corpus[i:i + 100])
 
-df2 = pd.read_csv("data/csvs/data_publications_2024_5_TestSample.csv")
-sucessmatch = 0
-for i in range(0,len(df2['abstract'])):
-    bow = dictionary.doc2bow(clean_text(df2['title'][i] + " " + df2['abstract'][i]).split(" "))
-    vec = ldamodel.get_document_topics(bow)
+df2 = pd.read_csv("data/csvs/data_publications_2024_5_TestSample_dataP.csv")
+for k in [1,2,3,5] + list(range(10, 110, 10)):
+    sucessmatch = 0
+    for i in range(0,len(df2['abstract'])):
+        bow = dictionary.doc2bow(clean_text(df2['title'][i] + " " + df2['abstract'][i]).split(" "))
+        vec = ldamodel.get_document_topics(bow)
 
-    vec = sparse_to_dense(vec)
-    results = vector_store.similarity_search_by_vector(vec,k=5)
+        vec = sparse_to_dense(vec)
+        results = vector_store.similarity_search_by_vector(vec,k=k)
 
-    for result in results:
-        if result.id in df2['projId'][i]:
-            sucessmatch += 1
-            break
-print(sucessmatch * 100/len(df2['abstract']))
+        for result in results:
+            if result.id in df2['projId'][i]:
+                sucessmatch += 1
+                break
+    print(f"Top k: {k} Result: {sucessmatch * 100/len(df2['abstract'])}")
