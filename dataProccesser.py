@@ -5,11 +5,9 @@ from bs4 import BeautifulSoup
 import re
 from bs4 import MarkupResemblesLocatorWarning
 import warnings
-
+import os
 warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
 
-from langchain_voyageai import VoyageAIEmbeddings
-from langchain_chroma import Chroma
 import numpy as np
 import umap
 import matplotlib.pyplot as plt
@@ -150,7 +148,8 @@ def extractProjectsToCSVFris():
     df = df[df['title'].str.len() >= 5] # remove projects with no titles
 
     
-    df.to_csv('data/csvs/data_projects_2024_5_FRIS_2.csv', index=False)
+    os.makedirs("data/csvs",exist_ok=True)
+    df.to_csv('data/csvs/data_projects_2024_5_FRIS.csv', index=False)
 
 # Helper function to extract publication data from each individual XML file
 # and return it as a DataFrame
@@ -191,6 +190,7 @@ def extractPublicationsToCSVFris():
     df = pd.DataFrame()
 
     xml_files = glob.glob("data/rawXml/data_publications_2024_5/*.xml")
+    
         
     with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
         results = pool.map(getDfFromPublicationXml, xml_files)
@@ -204,10 +204,12 @@ def extractPublicationsToCSVFris():
     df = df[df['title'].str.len() >= 5] # remove projects with no titles
 
     # remove projects for profferships and tenure tracks
-    
+
+
+    os.makedirs("data/csvs",exist_ok=True)
     df.to_csv('data/csvs/data_publications_2024_5_FRIS.csv', index=False)
 
-#Adding Partoners to the publication data
+#Adding participants to the publication data
 def getSimilarTestData():
     df = pd.read_csv('data/csvs/data_publications_2024_5.csv')
     df2 = pd.read_csv('data/csvs/data_publications_2024_5_FRIS.csv',dtype={'participants': str, 'disciplines': str, 'flemishDisciplines': str})
@@ -251,10 +253,15 @@ def createNormalized(vector_store_location):
     
     return vector_store
 
+def getWithOnlyProjId():
+    df = pd.read_csv('data/csvs/data_publications_2024_5_FRIS.csv')
+    df = df[df['projId'].str.len() > 0]
+    df.to_csv('data/csvs/data_publications_2024_5_FRIS_WithProjIdsOnly.csv', index=False)
+
 #create a test sample of the data for testing
 def createTestSample(sampleLocation = "TestSample.csv",sampleSize = 100):
     df = pd.read_csv('data/csvs/data_publications_2024_5_FRIS_WithProjIdsOnly.csv')
-    df_proj = pd.read_csv('data/csvs/data_projects_2024_5_FRIS_2.csv')
+    df_proj = pd.read_csv('data/csvs/data_projects_2024_5_FRIS.csv')
     df_proj = df_proj[df_proj['abstract'].str.len() > 200]
     df_sample = df.sample(sampleSize)
     #df_sample = pd.read_csv('data/csvs/data_publications_2024_5_TestSample.csv')
@@ -269,18 +276,10 @@ def createTestSample(sampleLocation = "TestSample.csv",sampleSize = 100):
 #extractProjectsToCSVFris()
 if __name__ == "__main__":
     #extractPublicationsToCSVFris()
-    extractProjectsToCSVFris()
+    #extractProjectsToCSVFris()
     #getSimilarTestData()
-    #mapVectorStore(Chroma(persist_directory = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_TestSample"))
-    
+    getWithOnlyProjId()
     #createTestSample()
-    
-
-    #df_proj = pd.read_csv('data/csvs/data_projects_2024_5_FRIS_2.csv')
-    #df = pd.read_csv('data/csvs/data_projects_2024_5_TestSample_Large.csv')
-    #df = df.merge(df_proj[['projId', 'dataProvider']], on='projId', how='left')
-    #df.to_csv('data/csvs/data_projects_2024_5_TestSample_Large.csv', index=False)
-
     
     
     

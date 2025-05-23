@@ -1,0 +1,51 @@
+# Web Framework
+flask
+
+# Data Processing
+pandas
+numpy
+
+# Machine Learning & NLP
+bertopic
+sentence-transformers
+nltk
+gensim
+scikit-learn
+
+# Vector Databases & Embeddings
+langchain-chroma
+langchain-voyageai
+langchain-ollama
+langchain-huggingface
+langchain-community
+chromadb
+
+# AI/ML Libraries
+torch
+transformers
+umap-learn
+
+# Visualization
+matplotlib
+plotly
+
+# Web Scraping & XML Processing
+beautifulsoup4
+lxml
+zeep
+
+# API Clients
+voyageai
+
+# Environment Management
+python-dotenv
+
+# Topic Modeling
+top2vec
+
+# Multiprocessing (usually built-in, but some systems need it)
+multiprocess
+
+# Additional utilities that might be needed
+regex
+tqdm

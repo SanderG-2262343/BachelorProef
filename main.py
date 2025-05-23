@@ -2,25 +2,15 @@ from dataValidation import runAllTests,runTestsVoyageAi,runTestsLingMinstral
 from Embeddings.embeddingVoyageAI import voyageAIEmbedding
 from langchain_chroma import Chroma
 from langchain_voyageai import VoyageAIEmbeddings
-#from Embeddings.embeddingNomicLocal import nomicEmbedding
-#from Embeddings.embeddingTop2Vec import top2vecModelTrain
+from Embeddings.embeddingNomicLocal import nomicEmbedding
+from Embeddings.embeddingTop2Vec import top2vecModelTrain
 
 #from Embeddings.embeddingGemini import geminiEmbedding
 #from Embeddings.embeddingLinqMinstral import LinqMinstralEmbedding
 #from dataProccesser import createTestSample
 import os
 from dotenv import load_dotenv
-#import shutil
 import pandas as pd
-#import nltk
-#from nltk.corpus import stopwords
-#nltk.download('stopwords')
-
-#def text)
-#    stop_words = set(stopwords.words('english'))
-#    word_tokens = text.split(" ")
-#    filtered_sentence = [w for w in word_tokens if not w.lower() in stop_words]
-#    return ' '.join(filtered_sentence)
 
 
 # Create multiple test samples and evaluate them, used for testing variance in samples
@@ -49,7 +39,7 @@ def multipleSamples():
 def main():
     vector_storeVoyageAIPath = "data/vectorStores/data_projects_2024_5_vector_store_VoyageAI_TA_Names_Disciplines_DP_TestSample"
     vector_storeNomicPath = "data/vectorStores/data_projects_2024_5_vector_store_Nomic_Names_TestSample"
-    vector_storeGeminiPath = "data/vectorStores/data_projects_2024_5_vector_store_Gemini_exp_TestSample"
+    #vector_storeGeminiPath = "data/vectorStores/data_projects_2024_5_vector_store_Gemini_exp_TestSample"
     top2vecModelPath = "data/models/top2vec_model_TestSample_Attr"
     currentDataset = "data/csvs/data_projects_2024_5_TestSample.csv"
 
@@ -62,12 +52,8 @@ def main():
                 top2vecModelPath,"data/csvs/data_publications_2024_5_TestSample_dataP.csv"
                 ,[lambda titles,abstracts,participants,disciplines,dataProviders: ["Instruct: Compare this publication with a project \n Query: Title: " + title + " Abstract: " + abstract for title, abstract,dataProvider in zip(titles, abstracts,dataProviders)],lambda titles, abstracts: ["Title: " + title + " Abstract:" + abstract for title, abstract in zip(titles, abstracts)],lambda titles, abstracts: ["Title: " + title + " Abstract:" + abstract for title, abstract in zip(titles, abstracts)]]
                 )
-#main()
-#multipleSamples()
-#LinqMinstralEmbedding("data/vectorStores/data_projects_2024_5_vector_store_LinqMinstral_Title","data/csvs/data_projects_2024_5_TestSample.csv")
 
-#publicationdata = pd.read_csv("data/csvs/data_publications_2024_5_TestSample_dataP.csv")
-#runTestsLingMinstral(publicationdata,"data/vectorStores/data_projects_2024_5_vector_store_LinqMinstral_Title","data/embeddingSaves/embeddingsLinqMinstral_TestSample.csv")
+
 
 def cleanDisciplines(disciplines):
     if pd.isnull(disciplines):
@@ -75,6 +61,8 @@ def cleanDisciplines(disciplines):
     set_disciplines = set([d[7:] for d in disciplines.split(";")])
     return ", ".join(set_disciplines)
 
+
+# assume the vector store is already created and saved in the specified path
 def getCorrelatedPublicationData(projId,k):
     """
     Get the correlated publication data for a given project ID.
@@ -83,6 +71,33 @@ def getCorrelatedPublicationData(projId,k):
     :return: A DataFrame containing the correlated publication data.
     """
 
+    if not os.path.exists("data/vectorStores/data_projects_2024_5_vector_store_voyage_publications"):
+        print("Vector store not found. Please create it first.")
+        return None
+    # Load the vector store
+    vector_store = Chroma(persist_directory="data/vectorStores/data_projects_2024_5_vector_store_voyage_publications")
+
+    load_dotenv()
+
+    # Load the embeddings
+    model = VoyageAIEmbeddings(model="voyage-3-large",api_key=os.environ['VOYAGE_API_KEY'])
+
+    df = pd.read_csv("data/csvs/data_projects_2024_5_FRIS_2.csv")
+    # Get the project data
+    project_data = df[df['projId'] == projId]
+
+
+    input = f"Instruct: Compare this project with a publication \n Query: Title: {project_data["title"].tolist()[0]} Abstract: {project_data["abstract"].tolist()[0]} Disciplines: {cleanDisciplines(project_data["flemishDisciplines"].tolist()[0])}" 
+    embedding = model.embed_documents([input])
+
+    results = vector_store.similarity_search_by_vector_with_relevance_scores(embedding, k=k, 
+                                                      #filter={"dataProvider": {"$contains": project_data["dataProvider"]}}
+                                                      )
+
+    return [f"{result.page_content} \n Similarity Score: {score}" for result,score in results]  #convert to a list of page_content
+
+#Creates a vector store for the publications to be used in get CorrelatedPublicationData
+def createVectorStoreForPublications():
     pubdata = "data/csvs/data_publications_2024_5_NoDupl.csv"
 
     if not os.path.exists(pubdata):
@@ -113,26 +128,15 @@ def getCorrelatedPublicationData(projId,k):
         print("Making vector store")
         voyageAIEmbedding("data/vectorStores/data_projects_2024_5_vector_store_voyage_publications",pubdata,zipfunction = lambda titles,abstracts,participants,disciplines,dataProviders: [f"Title: {title} Abstract: {abstract}"  for title, abstract in zip(titles, abstracts)],publications = True)
 
-    # Load the vector store
-    vector_store = Chroma(persist_directory="data/vectorStores/data_projects_2024_5_vector_store_voyage_publications")
-
-    load_dotenv()
-
-    # Load the embeddings
-    model = VoyageAIEmbeddings(model="voyage-3-large",api_key=os.environ['VOYAGE_API_KEY'])
-
-    df = pd.read_csv("data/csvs/data_projects_2024_5_FRIS_2.csv")
-    # Get the project data
-    project_data = df[df['projId'] == projId]
 
 
-    input = f"Instruct: Compare this project with a publication \n Query: Title: {project_data["title"].tolist()[0]} Abstract: {project_data["abstract"].tolist()[0]} Disciplines: {cleanDisciplines(project_data["flemishDisciplines"].tolist()[0])}" 
-    embedding = model.embed_documents([input])
+#main()
+#createVectorStoreForPublications()
+#multipleSamples()
 
-    result = vector_store.similarity_search_by_vector(embedding, k=k, 
-                                                      #filter={"dataProvider": {"$contains": project_data["dataProvider"]}}
-                                                      )
-
-    return [result.page_content for result in result]  #convert to a list of page_content
+# TESTING CODE FOR LINQMINSTRAL DOSEN'T WORK ON LOCAL DEVICE
+#LinqMinstralEmbedding("data/vectorStores/data_projects_2024_5_vector_store_LinqMinstral_Title","data/csvs/data_projects_2024_5_TestSample.csv")
+#publicationdata = pd.read_csv("data/csvs/data_publications_2024_5_TestSample_dataP.csv")
+#runTestsLingMinstral(publicationdata,"data/vectorStores/data_projects_2024_5_vector_store_LinqMinstral_Title","data/embeddingSaves/embeddingsLinqMinstral_TestSample.csv")
 
 #getCorrelatedPublicationData("915b7539-7c50-4c20-8f81-d7f437720871",5)

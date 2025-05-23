@@ -179,8 +179,8 @@ embeddingsNomic.csv
 embeddingsVoyage.csv
 embeddingsVoyageI.csv
 data/
-ScoresEmbeddings.xlsx
 ~$ScoresEmbeddings.xlsx
+
 
 
 #ignore trained top2vec model
