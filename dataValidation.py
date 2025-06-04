@@ -3,10 +3,7 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_chroma import Chroma
 from langchain_voyageai import VoyageAIEmbeddings
 from langchain_huggingface import HuggingFaceEmbeddings
-from sentence_transformers import CrossEncoder
 from google import genai
-from google.genai import types
-import voyageai
 import torch
 #from langchain_community.vectorstores import FAISS
 from Embeddings.embeddingVoyageAI import cleanParticipants, cleanDisciplines
@@ -15,9 +12,9 @@ import os
 import shutil
 from dotenv import load_dotenv
 import numpy as np
-import voyageai.object
 import time
 
+# Load environment variables from .env file
 load_dotenv()
 
 

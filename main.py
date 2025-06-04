@@ -54,7 +54,7 @@ def main():
                 )
 
 
-
+#helper function from Embeddings/embeddingVoyageAI.py to clean the disciplines but didnt include it
 def cleanDisciplines(disciplines):
     if pd.isnull(disciplines):
         return ""
@@ -62,6 +62,7 @@ def cleanDisciplines(disciplines):
     return ", ".join(set_disciplines)
 
 
+# Gets the correlated publication data for a given project ID using the VoyageAI embeddings.
 # assume the vector store is already created and saved in the specified path
 def getCorrelatedPublicationData(projId,k):
     """

@@ -10,11 +10,13 @@ app = Flask(__name__)
 
 projects_df = pd.read_csv("data/csvs/data_projects_2024_5_FRIS_2.csv")[["projId", "title"]]
 
+# Shows the homepage
 @app.route("/", methods=["GET"])
-def hello_world():
+def homepage():
     return render_template("homepage.html")
 
 
+# Helper function for searching projects for suggestions
 @app.route('/search')
 def search():
     query = request.args.get('q', '').lower()
@@ -25,6 +27,8 @@ def search():
 
     return jsonify(matches.to_dict(orient='records'))
 
+
+# Reloads the page with the correlated data
 @app.route("/correlated", methods=["POST"])
 def correlated():
     projId = request.json.get("projId")
